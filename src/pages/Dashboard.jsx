@@ -13,8 +13,9 @@ const translations = {
     noApplications: 'No applications yet',
     startFirst: 'Start your first Karta Pobytu application',
     createNew: 'Create Application',
-    status: { draft: 'Draft', pending: 'Pending Review', approved: 'Approved', rejected: 'Rejected' },
+    status: { draft: 'Draft', pending: 'Pending', approved: 'Approved', rejected: 'Rejected', created: 'Created' },
     packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
+    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
     logout: 'Logout',
     loading: 'Loading...'
   },
@@ -26,8 +27,9 @@ const translations = {
     noApplications: 'Brak wniosków',
     startFirst: 'Rozpocznij swój pierwszy wniosek o Kartę Pobytu',
     createNew: 'Utwórz Wniosek',
-    status: { draft: 'Szkic', pending: 'W Trakcie', approved: 'Zatwierdzony', rejected: 'Odrzucony' },
+    status: { draft: 'Szkic', pending: 'W Trakcie', approved: 'Zatwierdzony', rejected: 'Odrzucony', created: 'Utworzony' },
     packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
+    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
     logout: 'Wyloguj',
     loading: 'Ładowanie...'
   },
@@ -39,8 +41,9 @@ const translations = {
     noApplications: 'Немає заявок',
     startFirst: 'Почніть свою першу заявку на Карту Побиту',
     createNew: 'Створити Заявку',
-    status: { draft: 'Чернетка', pending: 'На Розгляді', approved: 'Схвалено', rejected: 'Відхилено' },
+    status: { draft: 'Чернетка', pending: 'На Розгляді', approved: 'Схвалено', rejected: 'Відхилено', created: 'Створено' },
     packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
+    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
     logout: 'Вийти',
     loading: 'Завантаження...'
   },
@@ -52,8 +55,9 @@ const translations = {
     noApplications: 'Henüz başvuru yok',
     startFirst: 'İlk Karta Pobytu başvurunuzu oluşturun',
     createNew: 'Başvuru Oluştur',
-    status: { draft: 'Taslak', pending: 'İncelemede', approved: 'Onaylandı', rejected: 'Reddedildi' },
+    status: { draft: 'Taslak', pending: 'İncelemede', approved: 'Onaylandı', rejected: 'Reddedildi', created: 'Oluşturuldu' },
     packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
+    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
     logout: 'Çıkış',
     loading: 'Yükleniyor...'
   },
@@ -65,8 +69,9 @@ const translations = {
     noApplications: 'Нет заявок',
     startFirst: 'Начните свою первую заявку на Карту Побыту',
     createNew: 'Создать Заявку',
-    status: { draft: 'Черновик', pending: 'На Рассмотрении', approved: 'Одобрено', rejected: 'Отклонено' },
+    status: { draft: 'Черновик', pending: 'На Рассмотрении', approved: 'Одобрено', rejected: 'Отклонено', created: 'Создано' },
     packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
+    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
     logout: 'Выйти',
     loading: 'Загрузка...'
   }
@@ -76,14 +81,16 @@ const statusIcons = {
   draft: Clock,
   pending: AlertCircle,
   approved: CheckCircle,
-  rejected: AlertCircle
+  rejected: AlertCircle,
+  created: Clock
 };
 
 const statusColors = {
   draft: 'text-yellow-400 bg-yellow-400/20',
   pending: 'text-blue-400 bg-blue-400/20',
   approved: 'text-green-400 bg-green-400/20',
-  rejected: 'text-red-400 bg-red-400/20'
+  rejected: 'text-red-400 bg-red-400/20',
+  created: 'text-purple-400 bg-purple-400/20'
 };
 
 export default function Dashboard() {
@@ -118,7 +125,6 @@ export default function Dashboard() {
   const loadApplications = async () => {
     try {
       const response = await getApplications();
-      // response.data array mi kontrol et
       if (Array.isArray(response.data)) {
         setApplications(response.data);
       } else if (response.data && Array.isArray(response.data.applications)) {
@@ -140,6 +146,9 @@ export default function Dashboard() {
       const response = await createApplication({ packageType });
       if (response.data && response.data.id) {
         navigate(`/application/${response.data.id}`);
+      } else {
+        // Sayfayı yenile
+        loadApplications();
       }
     } catch (error) {
       console.error('Error creating application:', error);
@@ -154,6 +163,23 @@ export default function Dashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString();
+    } catch {
+      return '-';
+    }
+  };
+
+  const getPackageName = (packageType) => {
+    if (!packageType) return 'Standard';
+    const name = t.packageNames[packageType.toLowerCase()];
+    return name || packageType.charAt(0).toUpperCase() + packageType.slice(1);
   };
 
   if (loading) {
@@ -267,8 +293,9 @@ export default function Dashboard() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {applications.map((app) => {
-                const StatusIcon = statusIcons[app.status] || Clock;
-                const statusColor = statusColors[app.status] || statusColors.draft;
+                const status = app.status || 'created';
+                const StatusIcon = statusIcons[status] || Clock;
+                const statusColor = statusColors[status] || statusColors.created;
                 
                 return (
                   <Link
@@ -279,15 +306,15 @@ export default function Dashboard() {
                     <div className="flex items-start justify-between mb-4">
                       <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${statusColor}`}>
                         <StatusIcon className="w-4 h-4" />
-                        {t.status[app.status] || app.status}
+                        {t.status[status] || status}
                       </div>
                       <span className="text-xs text-gray-400">
-                        {new Date(app.createdAt).toLocaleDateString()}
+                        {formatDate(app.createdAt || app.created_at)}
                       </span>
                     </div>
                     
                     <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-300 transition-colors">
-                      {app.packageType?.charAt(0).toUpperCase() + app.packageType?.slice(1)} Package
+                      {getPackageName(app.packageType || app.package_type)} Package
                     </h3>
                     
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
