@@ -9,6 +9,7 @@ const api = axios.create({
   },
 });
 
+// Token interceptor
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -26,5 +27,9 @@ export const uploadDocument = (applicationId, formData) =>
   api.post(`/applications/${applicationId}/documents`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+
+// Payment
+export const createCheckoutSession = (data) => api.post('/payments/create-checkout-session', data);
+export const verifyPayment = (sessionId) => api.get(`/payments/verify/${sessionId}`);
 
 export default api;

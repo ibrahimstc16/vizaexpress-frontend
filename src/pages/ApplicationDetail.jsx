@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowLeft, Upload, FileText, CheckCircle, AlertCircle, Clock, X, User, LogOut, Loader } from 'lucide-react';
+import { Sparkles, ArrowLeft, Upload, FileText, CheckCircle, AlertCircle, Clock, X, User, LogOut, Loader, CreditCard, Lock } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getApplication, uploadDocument } from '../services/api';
+import { getApplication, uploadDocument, createCheckoutSession } from '../services/api';
 
 const translations = {
   en: {
@@ -20,12 +20,17 @@ const translations = {
     required: 'Required',
     optional: 'Optional',
     aiValidation: 'AI Validation',
-    validating: 'Validating with Claude AI...',
     passed: 'Passed',
     issues: 'Issues Found',
-    pending: 'Pending Review',
     logout: 'Logout',
     loading: 'Loading...',
+    payment: 'Payment',
+    payNow: 'Pay Now',
+    paid: 'Paid',
+    unpaid: 'Unpaid',
+    processing: 'Processing...',
+    securePayment: 'Secure payment with Stripe',
+    price: 'Price',
     documentTypes: {
       passport: 'Passport',
       photo: 'Biometric Photo',
@@ -38,94 +43,19 @@ const translations = {
       draft: 'Draft',
       pending: 'Pending Review',
       approved: 'Approved',
-      rejected: 'Rejected'
+      rejected: 'Rejected',
+      created: 'Created',
+      paid: 'Paid'
     },
     packages: {
       express: 'Express',
       smart: 'Smart',
       concierge: 'Concierge'
-    }
-  },
-  pl: {
-    backToDashboard: 'Powrót do Panelu',
-    applicationDetails: 'Szczegóły Wniosku',
-    package: 'Pakiet',
-    status: 'Status',
-    created: 'Utworzono',
-    documents: 'Dokumenty',
-    uploadDocuments: 'Prześlij Dokumenty',
-    dragDrop: 'Przeciągnij lub kliknij aby przesłać',
-    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
-    uploading: 'Przesyłanie...',
-    uploaded: 'Przesłano',
-    required: 'Wymagane',
-    optional: 'Opcjonalne',
-    aiValidation: 'Walidacja AI',
-    validating: 'Sprawdzanie przez Claude AI...',
-    passed: 'Pozytywna',
-    issues: 'Znaleziono Problemy',
-    pending: 'W Trakcie',
-    logout: 'Wyloguj',
-    loading: 'Ładowanie...',
-    documentTypes: {
-      passport: 'Paszport',
-      photo: 'Zdjęcie Biometryczne',
-      residence_proof: 'Potwierdzenie Zamieszkania',
-      insurance: 'Ubezpieczenie Zdrowotne',
-      work_contract: 'Umowa o Pracę',
-      application_form: 'Formularz Wniosku'
     },
-    statusLabels: {
-      draft: 'Szkic',
-      pending: 'W Trakcie',
-      approved: 'Zatwierdzony',
-      rejected: 'Odrzucony'
-    },
-    packages: {
-      express: 'Express',
-      smart: 'Smart',
-      concierge: 'Concierge'
-    }
-  },
-  uk: {
-    backToDashboard: 'Повернутися до Панелі',
-    applicationDetails: 'Деталі Заявки',
-    package: 'Пакет',
-    status: 'Статус',
-    created: 'Створено',
-    documents: 'Документи',
-    uploadDocuments: 'Завантажити Документи',
-    dragDrop: 'Перетягніть або натисніть для завантаження',
-    supportedFormats: 'PDF, JPG, PNG (макс 10MB)',
-    uploading: 'Завантаження...',
-    uploaded: 'Завантажено',
-    required: 'Обов\'язково',
-    optional: 'Необов\'язково',
-    aiValidation: 'AI Перевірка',
-    validating: 'Перевірка Claude AI...',
-    passed: 'Пройдено',
-    issues: 'Знайдено Проблеми',
-    pending: 'На Розгляді',
-    logout: 'Вийти',
-    loading: 'Завантаження...',
-    documentTypes: {
-      passport: 'Паспорт',
-      photo: 'Біометричне Фото',
-      residence_proof: 'Підтвердження Проживання',
-      insurance: 'Медичне Страхування',
-      work_contract: 'Трудовий Контракт',
-      application_form: 'Форма Заявки'
-    },
-    statusLabels: {
-      draft: 'Чернетка',
-      pending: 'На Розгляді',
-      approved: 'Схвалено',
-      rejected: 'Відхилено'
-    },
-    packages: {
-      express: 'Express',
-      smart: 'Smart',
-      concierge: 'Concierge'
+    prices: {
+      express: '599 PLN',
+      smart: '1,299 PLN',
+      concierge: '2,499 PLN'
     }
   },
   tr: {
@@ -143,12 +73,17 @@ const translations = {
     required: 'Zorunlu',
     optional: 'Opsiyonel',
     aiValidation: 'AI Doğrulama',
-    validating: 'Claude AI ile kontrol ediliyor...',
     passed: 'Geçti',
     issues: 'Sorun Bulundu',
-    pending: 'İncelemede',
     logout: 'Çıkış',
     loading: 'Yükleniyor...',
+    payment: 'Ödeme',
+    payNow: 'Şimdi Öde',
+    paid: 'Ödendi',
+    unpaid: 'Ödenmedi',
+    processing: 'İşleniyor...',
+    securePayment: 'Stripe ile güvenli ödeme',
+    price: 'Fiyat',
     documentTypes: {
       passport: 'Pasaport',
       photo: 'Biyometrik Fotoğraf',
@@ -161,53 +96,178 @@ const translations = {
       draft: 'Taslak',
       pending: 'İncelemede',
       approved: 'Onaylandı',
-      rejected: 'Reddedildi'
+      rejected: 'Reddedildi',
+      created: 'Oluşturuldu',
+      paid: 'Ödendi'
     },
     packages: {
       express: 'Express',
       smart: 'Smart',
       concierge: 'Concierge'
+    },
+    prices: {
+      express: '599 PLN',
+      smart: '1.299 PLN',
+      concierge: '2.499 PLN'
+    }
+  },
+  pl: {
+    backToDashboard: 'Powrót do Panelu',
+    applicationDetails: 'Szczegóły Wniosku',
+    package: 'Pakiet',
+    status: 'Status',
+    created: 'Utworzono',
+    documents: 'Dokumenty',
+    uploadDocuments: 'Prześlij Dokumenty',
+    dragDrop: 'Przeciągnij lub kliknij',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
+    uploading: 'Przesyłanie...',
+    uploaded: 'Przesłano',
+    required: 'Wymagane',
+    optional: 'Opcjonalne',
+    aiValidation: 'Walidacja AI',
+    passed: 'Pozytywna',
+    issues: 'Znaleziono Problemy',
+    logout: 'Wyloguj',
+    loading: 'Ładowanie...',
+    payment: 'Płatność',
+    payNow: 'Zapłać Teraz',
+    paid: 'Opłacono',
+    unpaid: 'Nieopłacono',
+    processing: 'Przetwarzanie...',
+    securePayment: 'Bezpieczna płatność przez Stripe',
+    price: 'Cena',
+    documentTypes: {
+      passport: 'Paszport',
+      photo: 'Zdjęcie Biometryczne',
+      residence_proof: 'Potwierdzenie Zamieszkania',
+      insurance: 'Ubezpieczenie',
+      work_contract: 'Umowa o Pracę',
+      application_form: 'Formularz'
+    },
+    statusLabels: {
+      draft: 'Szkic',
+      pending: 'W Trakcie',
+      approved: 'Zatwierdzony',
+      rejected: 'Odrzucony',
+      created: 'Utworzony',
+      paid: 'Opłacono'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    },
+    prices: {
+      express: '599 PLN',
+      smart: '1.299 PLN',
+      concierge: '2.499 PLN'
+    }
+  },
+  uk: {
+    backToDashboard: 'Повернутися',
+    applicationDetails: 'Деталі Заявки',
+    package: 'Пакет',
+    status: 'Статус',
+    created: 'Створено',
+    documents: 'Документи',
+    uploadDocuments: 'Завантажити',
+    dragDrop: 'Перетягніть або натисніть',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
+    uploading: 'Завантаження...',
+    uploaded: 'Завантажено',
+    required: 'Обов\'язково',
+    optional: 'Необов\'язково',
+    aiValidation: 'AI Перевірка',
+    passed: 'Пройдено',
+    issues: 'Знайдено Проблеми',
+    logout: 'Вийти',
+    loading: 'Завантаження...',
+    payment: 'Оплата',
+    payNow: 'Оплатити',
+    paid: 'Оплачено',
+    unpaid: 'Не оплачено',
+    processing: 'Обробка...',
+    securePayment: 'Безпечна оплата через Stripe',
+    price: 'Ціна',
+    documentTypes: {
+      passport: 'Паспорт',
+      photo: 'Біометричне Фото',
+      residence_proof: 'Підтвердження',
+      insurance: 'Страхування',
+      work_contract: 'Контракт',
+      application_form: 'Форма'
+    },
+    statusLabels: {
+      draft: 'Чернетка',
+      pending: 'На Розгляді',
+      approved: 'Схвалено',
+      rejected: 'Відхилено',
+      created: 'Створено',
+      paid: 'Оплачено'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    },
+    prices: {
+      express: '599 PLN',
+      smart: '1.299 PLN',
+      concierge: '2.499 PLN'
     }
   },
   ru: {
-    backToDashboard: 'Вернуться в Панель',
+    backToDashboard: 'Вернуться',
     applicationDetails: 'Детали Заявки',
     package: 'Пакет',
     status: 'Статус',
     created: 'Создано',
     documents: 'Документы',
-    uploadDocuments: 'Загрузить Документы',
-    dragDrop: 'Перетащите или нажмите для загрузки',
-    supportedFormats: 'PDF, JPG, PNG (макс 10MB)',
+    uploadDocuments: 'Загрузить',
+    dragDrop: 'Перетащите или нажмите',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Загрузка...',
     uploaded: 'Загружено',
     required: 'Обязательно',
     optional: 'Необязательно',
     aiValidation: 'AI Проверка',
-    validating: 'Проверка Claude AI...',
     passed: 'Пройдено',
     issues: 'Найдены Проблемы',
-    pending: 'На Рассмотрении',
     logout: 'Выйти',
     loading: 'Загрузка...',
+    payment: 'Оплата',
+    payNow: 'Оплатить',
+    paid: 'Оплачено',
+    unpaid: 'Не оплачено',
+    processing: 'Обработка...',
+    securePayment: 'Безопасная оплата через Stripe',
+    price: 'Цена',
     documentTypes: {
       passport: 'Паспорт',
       photo: 'Биометрическое Фото',
-      residence_proof: 'Подтверждение Проживания',
-      insurance: 'Медицинская Страховка',
-      work_contract: 'Трудовой Контракт',
-      application_form: 'Форма Заявки'
+      residence_proof: 'Подтверждение',
+      insurance: 'Страховка',
+      work_contract: 'Контракт',
+      application_form: 'Форма'
     },
     statusLabels: {
       draft: 'Черновик',
       pending: 'На Рассмотрении',
       approved: 'Одобрено',
-      rejected: 'Отклонено'
+      rejected: 'Отклонено',
+      created: 'Создано',
+      paid: 'Оплачено'
     },
     packages: {
       express: 'Express',
       smart: 'Smart',
       concierge: 'Concierge'
+    },
+    prices: {
+      express: '599 PLN',
+      smart: '1.299 PLN',
+      concierge: '2.499 PLN'
     }
   }
 };
@@ -225,14 +285,18 @@ const statusColors = {
   draft: 'text-yellow-400 bg-yellow-400/20 border-yellow-400/30',
   pending: 'text-blue-400 bg-blue-400/20 border-blue-400/30',
   approved: 'text-green-400 bg-green-400/20 border-green-400/30',
-  rejected: 'text-red-400 bg-red-400/20 border-red-400/30'
+  rejected: 'text-red-400 bg-red-400/20 border-red-400/30',
+  created: 'text-purple-400 bg-purple-400/20 border-purple-400/30',
+  paid: 'text-green-400 bg-green-400/20 border-green-400/30'
 };
 
 const statusIcons = {
   draft: Clock,
   pending: AlertCircle,
   approved: CheckCircle,
-  rejected: X
+  rejected: X,
+  created: Clock,
+  paid: CheckCircle
 };
 
 export default function ApplicationDetail() {
@@ -244,6 +308,7 @@ export default function ApplicationDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState({});
   const [user, setUser] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const t = translations[lang];
 
   useEffect(() => {
@@ -292,7 +357,6 @@ export default function ApplicationDetail() {
       const response = await uploadDocument(id, formData);
       
       if (response.data) {
-        // Yeni belgeyi listeye ekle
         setDocuments(prev => {
           const filtered = prev.filter(d => d.documentType !== documentType);
           return [...filtered, response.data];
@@ -306,6 +370,26 @@ export default function ApplicationDetail() {
     }
   };
 
+  const handlePayment = async () => {
+    setPaymentLoading(true);
+    try {
+      const packageType = application.packageType || application.package_type || 'express';
+      const response = await createCheckoutSession({
+        packageType,
+        applicationId: id
+      });
+      
+      if (response.data && response.data.url) {
+        window.location.href = response.data.url;
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Payment failed. Please try again.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -315,6 +399,8 @@ export default function ApplicationDetail() {
   const getDocumentByType = (type) => {
     return documents.find(d => d.documentType === type);
   };
+
+  const isPaid = application?.status === 'paid' || application?.paid;
 
   if (loading) {
     return (
@@ -342,6 +428,7 @@ export default function ApplicationDetail() {
   }
 
   const StatusIcon = statusIcons[application.status] || Clock;
+  const packageType = application.packageType || application.package_type || 'express';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -398,7 +485,7 @@ export default function ApplicationDetail() {
                 Application #{application.id?.slice(0, 8)}
               </p>
             </div>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${statusColors[application.status]}`}>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${statusColors[application.status] || statusColors.created}`}>
               <StatusIcon className="w-5 h-5" />
               <span className="font-medium">{t.statusLabels[application.status] || application.status}</span>
             </div>
@@ -408,23 +495,58 @@ export default function ApplicationDetail() {
             <div>
               <p className="text-gray-400 text-sm mb-1">{t.package}</p>
               <p className="text-white font-semibold text-lg">
-                {t.packages[application.packageType] || application.packageType}
+                {t.packages[packageType] || packageType}
               </p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm mb-1">{t.status}</p>
+              <p className="text-gray-400 text-sm mb-1">{t.price}</p>
               <p className="text-white font-semibold text-lg">
-                {t.statusLabels[application.status] || application.status}
+                {t.prices[packageType] || '599 PLN'}
               </p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm mb-1">{t.created}</p>
-              <p className="text-white font-semibold text-lg">
-                {new Date(application.createdAt).toLocaleDateString()}
+              <p className="text-gray-400 text-sm mb-1">{t.payment}</p>
+              <p className={`font-semibold text-lg ${isPaid ? 'text-green-400' : 'text-yellow-400'}`}>
+                {isPaid ? t.paid : t.unpaid}
               </p>
             </div>
           </div>
         </div>
+
+        {/* Payment Section */}
+        {!isPaid && (
+          <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-purple-500/30 mb-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <CreditCard className="w-6 h-6 text-purple-400" />
+                  {t.payment}
+                </h2>
+                <p className="text-gray-300 flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  {t.securePayment}
+                </p>
+              </div>
+              <button
+                onClick={handlePayment}
+                disabled={paymentLoading}
+                className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-lg hover:scale-105 hover:shadow-xl hover:shadow-purple-500/30 transition-all disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {paymentLoading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    {t.processing}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5" />
+                    {t.payNow} - {t.prices[packageType]}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Documents Section */}
         <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/20">
@@ -499,7 +621,6 @@ export default function ApplicationDetail() {
                     </label>
                   )}
 
-                  {/* AI Validation Status */}
                   {uploadedDoc && uploadedDoc.aiValidation && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <p className="text-xs text-gray-400 mb-2">{t.aiValidation}</p>
@@ -518,11 +639,6 @@ export default function ApplicationDetail() {
                           </>
                         )}
                       </div>
-                      {uploadedDoc.aiValidation.message && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {uploadedDoc.aiValidation.message}
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>

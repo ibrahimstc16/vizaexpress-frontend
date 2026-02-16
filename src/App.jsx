@@ -9,6 +9,7 @@ import About from './pages/About';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
 import HowItWorks from './pages/HowItWorks';
+import PaymentSuccess from './pages/PaymentSuccess';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
         </Routes>
       </BrowserRouter>
     </LanguageProvider>
