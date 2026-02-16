@@ -1,134 +1,527 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Sparkles, ArrowLeft, Upload, FileText, CheckCircle, AlertCircle, Clock, X, User, LogOut, Loader } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getApplication, uploadDocument } from '../services/api';
-import { Upload, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
+
+const translations = {
+  en: {
+    backToDashboard: 'Back to Dashboard',
+    applicationDetails: 'Application Details',
+    package: 'Package',
+    status: 'Status',
+    created: 'Created',
+    documents: 'Documents',
+    uploadDocuments: 'Upload Documents',
+    dragDrop: 'Drag & drop or click to upload',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
+    uploading: 'Uploading...',
+    uploaded: 'Uploaded',
+    required: 'Required',
+    optional: 'Optional',
+    aiValidation: 'AI Validation',
+    validating: 'Validating with Claude AI...',
+    passed: 'Passed',
+    issues: 'Issues Found',
+    pending: 'Pending Review',
+    logout: 'Logout',
+    loading: 'Loading...',
+    documentTypes: {
+      passport: 'Passport',
+      photo: 'Biometric Photo',
+      residence_proof: 'Proof of Residence',
+      insurance: 'Health Insurance',
+      work_contract: 'Work Contract',
+      application_form: 'Application Form'
+    },
+    statusLabels: {
+      draft: 'Draft',
+      pending: 'Pending Review',
+      approved: 'Approved',
+      rejected: 'Rejected'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    }
+  },
+  pl: {
+    backToDashboard: 'Powrót do Panelu',
+    applicationDetails: 'Szczegóły Wniosku',
+    package: 'Pakiet',
+    status: 'Status',
+    created: 'Utworzono',
+    documents: 'Dokumenty',
+    uploadDocuments: 'Prześlij Dokumenty',
+    dragDrop: 'Przeciągnij lub kliknij aby przesłać',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
+    uploading: 'Przesyłanie...',
+    uploaded: 'Przesłano',
+    required: 'Wymagane',
+    optional: 'Opcjonalne',
+    aiValidation: 'Walidacja AI',
+    validating: 'Sprawdzanie przez Claude AI...',
+    passed: 'Pozytywna',
+    issues: 'Znaleziono Problemy',
+    pending: 'W Trakcie',
+    logout: 'Wyloguj',
+    loading: 'Ładowanie...',
+    documentTypes: {
+      passport: 'Paszport',
+      photo: 'Zdjęcie Biometryczne',
+      residence_proof: 'Potwierdzenie Zamieszkania',
+      insurance: 'Ubezpieczenie Zdrowotne',
+      work_contract: 'Umowa o Pracę',
+      application_form: 'Formularz Wniosku'
+    },
+    statusLabels: {
+      draft: 'Szkic',
+      pending: 'W Trakcie',
+      approved: 'Zatwierdzony',
+      rejected: 'Odrzucony'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    }
+  },
+  uk: {
+    backToDashboard: 'Повернутися до Панелі',
+    applicationDetails: 'Деталі Заявки',
+    package: 'Пакет',
+    status: 'Статус',
+    created: 'Створено',
+    documents: 'Документи',
+    uploadDocuments: 'Завантажити Документи',
+    dragDrop: 'Перетягніть або натисніть для завантаження',
+    supportedFormats: 'PDF, JPG, PNG (макс 10MB)',
+    uploading: 'Завантаження...',
+    uploaded: 'Завантажено',
+    required: 'Обов\'язково',
+    optional: 'Необов\'язково',
+    aiValidation: 'AI Перевірка',
+    validating: 'Перевірка Claude AI...',
+    passed: 'Пройдено',
+    issues: 'Знайдено Проблеми',
+    pending: 'На Розгляді',
+    logout: 'Вийти',
+    loading: 'Завантаження...',
+    documentTypes: {
+      passport: 'Паспорт',
+      photo: 'Біометричне Фото',
+      residence_proof: 'Підтвердження Проживання',
+      insurance: 'Медичне Страхування',
+      work_contract: 'Трудовий Контракт',
+      application_form: 'Форма Заявки'
+    },
+    statusLabels: {
+      draft: 'Чернетка',
+      pending: 'На Розгляді',
+      approved: 'Схвалено',
+      rejected: 'Відхилено'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    }
+  },
+  tr: {
+    backToDashboard: 'Panele Dön',
+    applicationDetails: 'Başvuru Detayları',
+    package: 'Paket',
+    status: 'Durum',
+    created: 'Oluşturulma',
+    documents: 'Belgeler',
+    uploadDocuments: 'Belge Yükle',
+    dragDrop: 'Sürükle bırak veya tıkla',
+    supportedFormats: 'PDF, JPG, PNG (max 10MB)',
+    uploading: 'Yükleniyor...',
+    uploaded: 'Yüklendi',
+    required: 'Zorunlu',
+    optional: 'Opsiyonel',
+    aiValidation: 'AI Doğrulama',
+    validating: 'Claude AI ile kontrol ediliyor...',
+    passed: 'Geçti',
+    issues: 'Sorun Bulundu',
+    pending: 'İncelemede',
+    logout: 'Çıkış',
+    loading: 'Yükleniyor...',
+    documentTypes: {
+      passport: 'Pasaport',
+      photo: 'Biyometrik Fotoğraf',
+      residence_proof: 'İkamet Belgesi',
+      insurance: 'Sağlık Sigortası',
+      work_contract: 'İş Sözleşmesi',
+      application_form: 'Başvuru Formu'
+    },
+    statusLabels: {
+      draft: 'Taslak',
+      pending: 'İncelemede',
+      approved: 'Onaylandı',
+      rejected: 'Reddedildi'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    }
+  },
+  ru: {
+    backToDashboard: 'Вернуться в Панель',
+    applicationDetails: 'Детали Заявки',
+    package: 'Пакет',
+    status: 'Статус',
+    created: 'Создано',
+    documents: 'Документы',
+    uploadDocuments: 'Загрузить Документы',
+    dragDrop: 'Перетащите или нажмите для загрузки',
+    supportedFormats: 'PDF, JPG, PNG (макс 10MB)',
+    uploading: 'Загрузка...',
+    uploaded: 'Загружено',
+    required: 'Обязательно',
+    optional: 'Необязательно',
+    aiValidation: 'AI Проверка',
+    validating: 'Проверка Claude AI...',
+    passed: 'Пройдено',
+    issues: 'Найдены Проблемы',
+    pending: 'На Рассмотрении',
+    logout: 'Выйти',
+    loading: 'Загрузка...',
+    documentTypes: {
+      passport: 'Паспорт',
+      photo: 'Биометрическое Фото',
+      residence_proof: 'Подтверждение Проживания',
+      insurance: 'Медицинская Страховка',
+      work_contract: 'Трудовой Контракт',
+      application_form: 'Форма Заявки'
+    },
+    statusLabels: {
+      draft: 'Черновик',
+      pending: 'На Рассмотрении',
+      approved: 'Одобрено',
+      rejected: 'Отклонено'
+    },
+    packages: {
+      express: 'Express',
+      smart: 'Smart',
+      concierge: 'Concierge'
+    }
+  }
+};
+
+const requiredDocuments = [
+  { type: 'passport', required: true },
+  { type: 'photo', required: true },
+  { type: 'residence_proof', required: true },
+  { type: 'insurance', required: true },
+  { type: 'work_contract', required: false },
+  { type: 'application_form', required: false }
+];
+
+const statusColors = {
+  draft: 'text-yellow-400 bg-yellow-400/20 border-yellow-400/30',
+  pending: 'text-blue-400 bg-blue-400/20 border-blue-400/30',
+  approved: 'text-green-400 bg-green-400/20 border-green-400/30',
+  rejected: 'text-red-400 bg-red-400/20 border-red-400/30'
+};
+
+const statusIcons = {
+  draft: Clock,
+  pending: AlertCircle,
+  approved: CheckCircle,
+  rejected: X
+};
 
 export default function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { lang } = useLanguage();
   const [application, setApplication] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState({});
+  const [user, setUser] = useState(null);
+  const t = translations[lang];
 
   useEffect(() => {
-    fetchApplication();
-  }, [id]);
+    const userData = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    if (!token || !userData) {
+      navigate('/login');
+      return;
+    }
+    
+    try {
+      setUser(JSON.parse(userData));
+    } catch (e) {
+      navigate('/login');
+      return;
+    }
+    
+    loadApplication();
+  }, [id, navigate]);
 
-  const fetchApplication = async () => {
+  const loadApplication = async () => {
     try {
       const response = await getApplication(id);
-      setApplication(response.data.application);
-      setDocuments(response.data.documents || []);
-    } catch (err) {
-      console.error('Failed to fetch application:', err);
+      if (response.data) {
+        setApplication(response.data);
+        setDocuments(response.data.documents || []);
+      }
+    } catch (error) {
+      console.error('Error loading application:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleFileUpload = async (documentType, file) => {
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('applicationId', id);
-    formData.append('documentType', documentType);
+    if (!file) return;
+
+    setUploading({ ...uploading, [documentType]: true });
 
     try {
-      await uploadDocument(formData);
-      fetchApplication();
-      alert('Document uploaded successfully!');
-    } catch (err) {
-      alert('Upload failed: ' + (err.response?.data?.error || 'Unknown error'));
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', documentType);
+
+      const response = await uploadDocument(id, formData);
+      
+      if (response.data) {
+        // Yeni belgeyi listeye ekle
+        setDocuments(prev => {
+          const filtered = prev.filter(d => d.documentType !== documentType);
+          return [...filtered, response.data];
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Upload failed. Please try again.');
     } finally {
-      setUploading(false);
+      setUploading({ ...uploading, [documentType]: false });
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
-  const getStatusIcon = (status) => {
-    if (status === 'passed') return <CheckCircle className="w-5 h-5 text-green-500" />;
-    if (status === 'warning') return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-    if (status === 'failed') return <AlertCircle className="w-5 h-5 text-red-500" />;
-    return <Clock className="w-5 h-5 text-gray-400" />;
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
   };
 
+  const getDocumentByType = (type) => {
+    return documents.find(d => d.documentType === type);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Sparkles className="w-16 h-16 text-yellow-400 animate-spin mx-auto mb-4" />
+          <p className="text-white text-xl">{t.loading}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <p className="text-white text-xl">Application not found</p>
+          <Link to="/dashboard" className="text-purple-400 hover:text-purple-300 mt-4 inline-block">
+            {t.backToDashboard}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const StatusIcon = statusIcons[application.status] || Clock;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute top-40 right-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+      </div>
+
+      {/* Header */}
+      <nav className="relative z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-indigo-600">VizaExpress</h1>
-          <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-indigo-600">
-            ← Back to Dashboard
-          </button>
+          <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2 hover:scale-105 transition-transform">
+            <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" style={{animationDuration: '3s'}} />
+            VizaExpress
+          </Link>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-xl border border-white/20">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-white font-medium hidden sm:block">{user?.fullName || 'User'}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 hover:text-red-200 transition-all hover:scale-105"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="hidden sm:block">{t.logout}</span>
+            </button>
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4 capitalize">{application.package_type} Package</h2>
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-            <div 
-              className="bg-indigo-600 h-3 rounded-full"
-              style={{ width: `${application.progress_percentage}%` }}
-            />
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-8">
+        {/* Back Button */}
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors group"
+        >
+          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          {t.backToDashboard}
+        </Link>
+
+        {/* Application Header */}
+        <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/20 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                {t.applicationDetails}
+              </h1>
+              <p className="text-gray-400">
+                Application #{application.id?.slice(0, 8)}
+              </p>
+            </div>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${statusColors[application.status]}`}>
+              <StatusIcon className="w-5 h-5" />
+              <span className="font-medium">{t.statusLabels[application.status] || application.status}</span>
+            </div>
           </div>
-          <p className="text-sm text-gray-600">{application.progress_percentage}% Complete</p>
+
+          <div className="grid md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-white/10">
+            <div>
+              <p className="text-gray-400 text-sm mb-1">{t.package}</p>
+              <p className="text-white font-semibold text-lg">
+                {t.packages[application.packageType] || application.packageType}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm mb-1">{t.status}</p>
+              <p className="text-white font-semibold text-lg">
+                {t.statusLabels[application.status] || application.status}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm mb-1">{t.created}</p>
+              <p className="text-white font-semibold text-lg">
+                {new Date(application.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-xl font-bold mb-4">Required Documents</h3>
-          
-          <div className="space-y-4">
-            {['passport', 'photo', 'residence_proof'].map((docType) => {
-              const doc = documents.find(d => d.document_type === docType);
-              
+        {/* Documents Section */}
+        <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/20">
+          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-purple-400" />
+            {t.documents}
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {requiredDocuments.map((doc) => {
+              const uploadedDoc = getDocumentByType(doc.type);
+              const isUploading = uploading[doc.type];
+
               return (
-                <div key={docType} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      <h4 className="font-semibold capitalize">{docType.replace('_', ' ')}</h4>
+                <div
+                  key={doc.type}
+                  className={`relative rounded-2xl border-2 border-dashed p-6 transition-all duration-300 ${
+                    uploadedDoc
+                      ? 'border-green-400/50 bg-green-400/10'
+                      : 'border-white/20 bg-white/5 hover:border-purple-400/50 hover:bg-purple-400/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-white font-semibold">
+                        {t.documentTypes[doc.type]}
+                      </h3>
+                      <span className={`text-xs ${doc.required ? 'text-red-400' : 'text-gray-500'}`}>
+                        {doc.required ? t.required : t.optional}
+                      </span>
                     </div>
-                    {doc && getStatusIcon(doc.ai_validation_status)}
+                    {uploadedDoc && (
+                      <CheckCircle className="w-6 h-6 text-green-400" />
+                    )}
                   </div>
 
-                  {!doc ? (
-                    <label className="block">
+                  {uploadedDoc ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-400/20 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium truncate max-w-[150px]">
+                          {uploadedDoc.originalName || 'Document'}
+                        </p>
+                        <p className="text-green-400 text-xs">{t.uploaded}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block">
                       <input
                         type="file"
                         className="hidden"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleFileUpload(docType, e.target.files[0])}
-                        disabled={uploading}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileUpload(doc.type, e.target.files[0])}
+                        disabled={isUploading}
                       />
-                      <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50">
-                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload</p>
+                      <div className="flex flex-col items-center justify-center py-4">
+                        {isUploading ? (
+                          <>
+                            <Loader className="w-8 h-8 text-purple-400 animate-spin mb-2" />
+                            <p className="text-purple-400 text-sm">{t.uploading}</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                            <p className="text-gray-400 text-sm text-center">{t.dragDrop}</p>
+                            <p className="text-gray-500 text-xs mt-1">{t.supportedFormats}</p>
+                          </>
+                        )}
                       </div>
                     </label>
-                  ) : (
-                    <div className="bg-gray-50 rounded p-3">
-                      <p className="text-sm text-gray-600 mb-1">
-                        <strong>Status:</strong> {doc.ai_validation_status || 'Processing...'}
-                      </p>
-                      {doc.ai_validation_result && (
-                        <div className="text-sm mt-2">
-                          <p><strong>Confidence:</strong> {(doc.ai_validation_result.confidence * 100).toFixed(0)}%</p>
-                          {doc.ai_validation_result.issues?.length > 0 && (
-                            <div className="mt-2">
-                              <strong>Issues:</strong>
-                              <ul className="list-disc ml-5 mt-1">
-                                {doc.ai_validation_result.issues.map((issue, i) => (
-                                  <li key={i} className="text-red-600">{issue.message}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
+                  )}
+
+                  {/* AI Validation Status */}
+                  {uploadedDoc && uploadedDoc.aiValidation && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <p className="text-xs text-gray-400 mb-2">{t.aiValidation}</p>
+                      <div className={`flex items-center gap-2 ${
+                        uploadedDoc.aiValidation.passed ? 'text-green-400' : 'text-yellow-400'
+                      }`}>
+                        {uploadedDoc.aiValidation.passed ? (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-sm">{t.passed}</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{t.issues}</span>
+                          </>
+                        )}
+                      </div>
+                      {uploadedDoc.aiValidation.message && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {uploadedDoc.aiValidation.message}
+                        </p>
                       )}
                     </div>
                   )}
