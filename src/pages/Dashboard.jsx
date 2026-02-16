@@ -105,16 +105,30 @@ export default function Dashboard() {
       return;
     }
     
-    setUser(JSON.parse(userData));
+    try {
+      setUser(JSON.parse(userData));
+    } catch (e) {
+      navigate('/login');
+      return;
+    }
+    
     loadApplications();
   }, [navigate]);
 
   const loadApplications = async () => {
     try {
       const response = await getApplications();
-      setApplications(response.data || []);
+      // response.data array mi kontrol et
+      if (Array.isArray(response.data)) {
+        setApplications(response.data);
+      } else if (response.data && Array.isArray(response.data.applications)) {
+        setApplications(response.data.applications);
+      } else {
+        setApplications([]);
+      }
     } catch (error) {
       console.error('Error loading applications:', error);
+      setApplications([]);
     } finally {
       setLoading(false);
     }
@@ -124,7 +138,9 @@ export default function Dashboard() {
     setCreating(true);
     try {
       const response = await createApplication({ packageType });
-      navigate(`/application/${response.data.id}`);
+      if (response.data && response.data.id) {
+        navigate(`/application/${response.data.id}`);
+      }
     } catch (error) {
       console.error('Error creating application:', error);
       alert('Error creating application');
@@ -172,7 +188,7 @@ export default function Dashboard() {
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white font-medium hidden sm:block">{user?.fullName}</span>
+              <span className="text-white font-medium hidden sm:block">{user?.fullName || 'User'}</span>
             </div>
             <button
               onClick={handleLogout}
@@ -189,7 +205,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            {t.welcome}, <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{user?.fullName?.split(' ')[0]}</span>! 👋
+            {t.welcome}, <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{user?.fullName?.split(' ')[0] || 'User'}</span>! 👋
           </h1>
           <p className="text-gray-400">{t.dashboard}</p>
         </div>
@@ -276,7 +292,7 @@ export default function Dashboard() {
                     
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                       <FileText className="w-4 h-4" />
-                      <span>Application #{app.id.slice(0, 8)}</span>
+                      <span>Application #{app.id?.slice(0, 8)}</span>
                     </div>
                   </Link>
                 );
