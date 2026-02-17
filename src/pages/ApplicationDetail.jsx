@@ -331,13 +331,20 @@ export default function ApplicationDetail() {
   }, [id, navigate]);
 
   const loadApplication = async () => {
-    try {
-      const response = await getApplication(id);
-      if (response.data) {
-        setApplication(response.data);
-        setDocuments(response.data.documents || []);
-      }
-    } catch (error) {
+  try {
+    const response = await getApplication(id);
+    if (response.data) {
+      // Backend { application: ..., documents: ... } döndürüyor
+      const appData = response.data.application || response.data;
+      setApplication(appData);
+      setDocuments(response.data.documents || appData.documents || []);
+    }
+  } catch (error) {
+    console.error('Error loading application:', error);
+  } finally {
+    setLoading(false);
+  }
+};} catch (error) {
       console.error('Error loading application:', error);
     } finally {
       setLoading(false);
