@@ -12,7 +12,6 @@ const translations = {
     status: 'Status',
     created: 'Created',
     documents: 'Documents',
-    uploadDocuments: 'Upload Documents',
     dragDrop: 'Drag & drop or click to upload',
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Uploading...',
@@ -65,7 +64,6 @@ const translations = {
     status: 'Durum',
     created: 'Oluşturulma',
     documents: 'Belgeler',
-    uploadDocuments: 'Belge Yükle',
     dragDrop: 'Sürükle bırak veya tıkla',
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Yükleniyor...',
@@ -118,7 +116,6 @@ const translations = {
     status: 'Status',
     created: 'Utworzono',
     documents: 'Dokumenty',
-    uploadDocuments: 'Prześlij Dokumenty',
     dragDrop: 'Przeciągnij lub kliknij',
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Przesyłanie...',
@@ -171,7 +168,6 @@ const translations = {
     status: 'Статус',
     created: 'Створено',
     documents: 'Документи',
-    uploadDocuments: 'Завантажити',
     dragDrop: 'Перетягніть або натисніть',
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Завантаження...',
@@ -224,7 +220,6 @@ const translations = {
     status: 'Статус',
     created: 'Создано',
     documents: 'Документы',
-    uploadDocuments: 'Загрузить',
     dragDrop: 'Перетащите или нажмите',
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Загрузка...',
@@ -330,28 +325,18 @@ export default function ApplicationDetail() {
     loadApplication();
   }, [id, navigate]);
 
-const loadApplication = async () => {
-  try {
-    const response = await getApplication(id);
-    console.log('Application response:', response.data); // Debug için
-    if (response.data) {
-      const appData = response.data.application || response.data;
-      console.log('Application data:', appData); // Debug için
-      setApplication(appData);
-      setDocuments(response.data.documents || appData.documents || []);
-    }
-  } catch (error) {
-    console.error('Error loading application:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-  } catch (error) {
-    console.error('Error loading application:', error);
-  } finally {
-    setLoading(false);
-  }
-};} catch (error) {
+  const loadApplication = async () => {
+    try {
+      const response = await getApplication(id);
+      console.log('Full response:', response.data);
+      if (response.data) {
+        const appData = response.data.application || response.data;
+        console.log('App data:', appData);
+        console.log('Status:', appData.status);
+        setApplication(appData);
+        setDocuments(response.data.documents || []);
+      }
+    } catch (error) {
       console.error('Error loading application:', error);
     } finally {
       setLoading(false);
@@ -360,16 +345,12 @@ const loadApplication = async () => {
 
   const handleFileUpload = async (documentType, file) => {
     if (!file) return;
-
     setUploading({ ...uploading, [documentType]: true });
-
     try {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('documentType', documentType);
-
       const response = await uploadDocument(id, formData);
-      
       if (response.data) {
         setDocuments(prev => {
           const filtered = prev.filter(d => d.documentType !== documentType);
@@ -387,12 +368,11 @@ const loadApplication = async () => {
   const handlePayment = async () => {
     setPaymentLoading(true);
     try {
-      const packageType = application.packageType || application.package_type || 'express';
+      const packageType = application.package_type || application.packageType || 'express';
       const response = await createCheckoutSession({
         packageType,
         applicationId: id
       });
-      
       if (response.data && response.data.url) {
         window.location.href = response.data.url;
       }
@@ -411,10 +391,8 @@ const loadApplication = async () => {
   };
 
   const getDocumentByType = (type) => {
-    return documents.find(d => d.documentType === type);
+    return documents.find(d => d.documentType === type || d.document_type === type);
   };
-
- const isPaid = application?.status === 'paid' || application?.paid === true;
 
   if (loading) {
     return (
@@ -441,25 +419,24 @@ const loadApplication = async () => {
     );
   }
 
-  const StatusIcon = statusIcons[application.status] || Clock;
-  const packageType = application.packageType || application.package_type || 'express';
+  const appStatus = application.status || 'created';
+  const isPaid = appStatus === 'paid';
+  const StatusIcon = statusIcons[appStatus] || Clock;
+  const packageType = application.package_type || application.packageType || 'express';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
         <div className="absolute top-40 right-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
       </div>
 
-      {/* Header */}
       <nav className="relative z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2 hover:scale-105 transition-transform">
             <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" style={{animationDuration: '3s'}} />
             VizaExpress
           </Link>
-
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-xl border border-white/20">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
@@ -467,10 +444,7 @@ const loadApplication = async () => {
               </div>
               <span className="text-white font-medium hidden sm:block">{user?.fullName || 'User'}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 hover:text-red-200 transition-all hover:scale-105"
-            >
+            <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 hover:text-red-200 transition-all hover:scale-105">
               <LogOut className="w-5 h-5" />
               <span className="hidden sm:block">{t.logout}</span>
             </button>
@@ -479,44 +453,31 @@ const loadApplication = async () => {
       </nav>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors group"
-        >
+        <Link to="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors group">
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           {t.backToDashboard}
         </Link>
 
-        {/* Application Header */}
         <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/20 mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                {t.applicationDetails}
-              </h1>
-              <p className="text-gray-400">
-                Application #{application.id?.slice(0, 8)}
-              </p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{t.applicationDetails}</h1>
+              <p className="text-gray-400">Application #{application.id?.slice(0, 8)}</p>
             </div>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${statusColors[application.status] || statusColors.created}`}>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border ${statusColors[appStatus] || statusColors.created}`}>
               <StatusIcon className="w-5 h-5" />
-              <span className="font-medium">{t.statusLabels[application.status] || application.status}</span>
+              <span className="font-medium">{t.statusLabels[appStatus] || appStatus}</span>
             </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-white/10">
             <div>
               <p className="text-gray-400 text-sm mb-1">{t.package}</p>
-              <p className="text-white font-semibold text-lg">
-                {t.packages[packageType] || packageType}
-              </p>
+              <p className="text-white font-semibold text-lg">{t.packages[packageType] || packageType}</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">{t.price}</p>
-              <p className="text-white font-semibold text-lg">
-                {t.prices[packageType] || '599 PLN'}
-              </p>
+              <p className="text-white font-semibold text-lg">{t.prices[packageType] || '599 PLN'}</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">{t.payment}</p>
@@ -527,7 +488,6 @@ const loadApplication = async () => {
           </div>
         </div>
 
-        {/* Payment Section */}
         {!isPaid && (
           <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-purple-500/30 mb-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -544,7 +504,7 @@ const loadApplication = async () => {
               <button
                 onClick={handlePayment}
                 disabled={paymentLoading}
-                className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-lg hover:scale-105 hover:shadow-xl hover:shadow-purple-500/30 transition-all disabled:opacity-50 disabled:hover:scale-100"
+                className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-lg hover:scale-105 hover:shadow-xl hover:shadow-purple-500/30 transition-all disabled:opacity-50"
               >
                 {paymentLoading ? (
                   <>
@@ -562,7 +522,6 @@ const loadApplication = async () => {
           </div>
         )}
 
-        {/* Documents Section */}
         <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 border border-white/20">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <FileText className="w-6 h-6 text-purple-400" />
@@ -585,16 +544,12 @@ const loadApplication = async () => {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-white font-semibold">
-                        {t.documentTypes[doc.type]}
-                      </h3>
+                      <h3 className="text-white font-semibold">{t.documentTypes[doc.type]}</h3>
                       <span className={`text-xs ${doc.required ? 'text-red-400' : 'text-gray-500'}`}>
                         {doc.required ? t.required : t.optional}
                       </span>
                     </div>
-                    {uploadedDoc && (
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                    )}
+                    {uploadedDoc && <CheckCircle className="w-6 h-6 text-green-400" />}
                   </div>
 
                   {uploadedDoc ? (
@@ -604,7 +559,7 @@ const loadApplication = async () => {
                       </div>
                       <div>
                         <p className="text-white text-sm font-medium truncate max-w-[150px]">
-                          {uploadedDoc.originalName || 'Document'}
+                          {uploadedDoc.original_name || uploadedDoc.originalName || 'Document'}
                         </p>
                         <p className="text-green-400 text-xs">{t.uploaded}</p>
                       </div>
@@ -633,27 +588,6 @@ const loadApplication = async () => {
                         )}
                       </div>
                     </label>
-                  )}
-
-                  {uploadedDoc && uploadedDoc.aiValidation && (
-                    <div className="mt-4 pt-4 border-t border-white/10">
-                      <p className="text-xs text-gray-400 mb-2">{t.aiValidation}</p>
-                      <div className={`flex items-center gap-2 ${
-                        uploadedDoc.aiValidation.passed ? 'text-green-400' : 'text-yellow-400'
-                      }`}>
-                        {uploadedDoc.aiValidation.passed ? (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-sm">{t.passed}</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="w-4 h-4" />
-                            <span className="text-sm">{t.issues}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
                   )}
                 </div>
               );
