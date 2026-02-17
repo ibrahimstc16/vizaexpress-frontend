@@ -172,8 +172,8 @@ const translations = {
     supportedFormats: 'PDF, JPG, PNG (max 10MB)',
     uploading: 'Завантаження...',
     uploaded: 'Завантажено',
-    required: 'Обов\'язково',
-    optional: 'Необов\'язково',
+    required: "Обов'язково",
+    optional: "Необов'язково",
     aiValidation: 'AI Перевірка',
     passed: 'Пройдено',
     issues: 'Знайдено Проблеми',
@@ -332,7 +332,6 @@ export default function ApplicationDetail() {
       if (response.data) {
         const appData = response.data.application || response.data;
         console.log('App data:', appData);
-        console.log('Status:', appData.status);
         setApplication(appData);
         setDocuments(response.data.documents || []);
       }
@@ -344,28 +343,19 @@ export default function ApplicationDetail() {
   };
 
   const handleFileUpload = async (documentType, file) => {
-  if (!file) return;
-  setUploading({ ...uploading, [documentType]: true });
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('documentType', documentType);
-    formData.append('applicationId', id);
-    
-    const response = await uploadDocument(id, formData);
-    if (response.data && response.data.document) {
-      setDocuments(prev => {
-        const filtered = prev.filter(d => d.document_type !== documentType && d.documentType !== documentType);
-        return [...filtered, response.data.document];
-      });
-    }
-  } catch (error) {
-    console.error('Error uploading document:', error);
-    alert('Upload failed. Please try again.');
-  } finally {
-    setUploading({ ...uploading, [documentType]: false });
-  }
-};
+    if (!file) return;
+    setUploading({ ...uploading, [documentType]: true });
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', documentType);
+      const response = await uploadDocument(id, formData);
+      console.log('Upload response:', response.data);
+      if (response.data && response.data.document) {
+        setDocuments(prev => {
+          const filtered = prev.filter(d => d.document_type !== documentType && d.documentType !== documentType);
+          return [...filtered, response.data.document];
+        });
       }
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -401,7 +391,7 @@ export default function ApplicationDetail() {
   };
 
   const getDocumentByType = (type) => {
-    return documents.find(d => d.documentType === type || d.document_type === type);
+    return documents.find(d => d.document_type === type || d.documentType === type);
   };
 
   if (loading) {
@@ -569,7 +559,7 @@ export default function ApplicationDetail() {
                       </div>
                       <div>
                         <p className="text-white text-sm font-medium truncate max-w-[150px]">
-                          {uploadedDoc.original_name || uploadedDoc.originalName || 'Document'}
+                          {uploadedDoc.original_filename || uploadedDoc.originalName || 'Document'}
                         </p>
                         <p className="text-green-400 text-xs">{t.uploaded}</p>
                       </div>
