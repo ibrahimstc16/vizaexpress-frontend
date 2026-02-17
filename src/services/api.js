@@ -23,10 +23,14 @@ export const login = (data) => api.post('/auth/login', data);
 export const getApplications = () => api.get('/applications');
 export const createApplication = (data) => api.post('/applications', data);
 export const getApplication = (id) => api.get(`/applications/${id}`);
-export const uploadDocument = (applicationId, formData) => 
-  api.post(`/applications/${applicationId}/documents`, formData, {
+
+// Document upload - doğru endpoint
+export const uploadDocument = (applicationId, formData) => {
+  formData.append('applicationId', applicationId);
+  return api.post('/documents/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+};
 
 // Payment
 export const createCheckoutSession = (data) => api.post('/payments/create-checkout-session', data);

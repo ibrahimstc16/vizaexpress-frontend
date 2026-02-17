@@ -344,18 +344,28 @@ export default function ApplicationDetail() {
   };
 
   const handleFileUpload = async (documentType, file) => {
-    if (!file) return;
-    setUploading({ ...uploading, [documentType]: true });
-    try {
-      const formData = new FormData();
-      formData.append('document', file);
-      formData.append('documentType', documentType);
-      const response = await uploadDocument(id, formData);
-      if (response.data) {
-        setDocuments(prev => {
-          const filtered = prev.filter(d => d.documentType !== documentType);
-          return [...filtered, response.data];
-        });
+  if (!file) return;
+  setUploading({ ...uploading, [documentType]: true });
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    formData.append('applicationId', id);
+    
+    const response = await uploadDocument(id, formData);
+    if (response.data && response.data.document) {
+      setDocuments(prev => {
+        const filtered = prev.filter(d => d.document_type !== documentType && d.documentType !== documentType);
+        return [...filtered, response.data.document];
+      });
+    }
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    setUploading({ ...uploading, [documentType]: false });
+  }
+};
       }
     } catch (error) {
       console.error('Error uploading document:', error);
