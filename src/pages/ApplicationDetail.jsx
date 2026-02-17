@@ -330,15 +330,22 @@ export default function ApplicationDetail() {
     loadApplication();
   }, [id, navigate]);
 
-  const loadApplication = async () => {
+const loadApplication = async () => {
   try {
     const response = await getApplication(id);
+    console.log('Application response:', response.data); // Debug için
     if (response.data) {
-      // Backend { application: ..., documents: ... } döndürüyor
       const appData = response.data.application || response.data;
+      console.log('Application data:', appData); // Debug için
       setApplication(appData);
       setDocuments(response.data.documents || appData.documents || []);
     }
+  } catch (error) {
+    console.error('Error loading application:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   } catch (error) {
     console.error('Error loading application:', error);
   } finally {
@@ -407,7 +414,7 @@ export default function ApplicationDetail() {
     return documents.find(d => d.documentType === type);
   };
 
-  const isPaid = application?.status === 'paid' || application?.paid;
+ const isPaid = application?.status === 'paid' || application?.paid === true;
 
   if (loading) {
     return (
