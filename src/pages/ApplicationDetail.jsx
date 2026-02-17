@@ -553,17 +553,57 @@ export default function ApplicationDetail() {
                   </div>
 
                   {uploadedDoc ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-400/20 rounded-lg flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-white text-sm font-medium truncate max-w-[150px]">
-                          {uploadedDoc.original_filename || uploadedDoc.originalName || 'Document'}
-                        </p>
-                        <p className="text-green-400 text-xs">{t.uploaded}</p>
-                      </div>
-                    </div>
+  <div>
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 bg-green-400/20 rounded-lg flex items-center justify-center">
+        <FileText className="w-5 h-5 text-green-400" />
+      </div>
+      <div>
+        <p className="text-white text-sm font-medium truncate max-w-[150px]">
+          {uploadedDoc.original_filename || uploadedDoc.originalName || 'Document'}
+        </p>
+        <p className="text-green-400 text-xs">{t.uploaded}</p>
+      </div>
+    </div>
+    {uploadedDoc.ai_validation_result && (
+      <div className={`mt-3 p-3 rounded-xl ${
+        uploadedDoc.ai_validation_status === 'passed' 
+          ? 'bg-green-400/10 border border-green-400/30' 
+          : 'bg-yellow-400/10 border border-yellow-400/30'
+      }`}>
+        <div className="flex items-center gap-2 mb-2">
+          {uploadedDoc.ai_validation_status === 'passed' ? (
+            <CheckCircle className="w-4 h-4 text-green-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-yellow-400" />
+          )}
+          <span className={`text-sm font-medium ${
+            uploadedDoc.ai_validation_status === 'passed' ? 'text-green-400' : 'text-yellow-400'
+          }`}>
+            {uploadedDoc.ai_validation_status === 'passed' ? t.passed : t.issues}
+          </span>
+          {uploadedDoc.ai_validation_result.score && (
+            <span className="text-xs text-gray-400 ml-auto">
+              {uploadedDoc.ai_validation_result.score}/100
+            </span>
+          )}
+        </div>
+        {uploadedDoc.ai_validation_result.summary && (
+          <p className="text-xs text-gray-300">{uploadedDoc.ai_validation_result.summary}</p>
+        )}
+        {uploadedDoc.ai_validation_result.issues && uploadedDoc.ai_validation_result.issues.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {uploadedDoc.ai_validation_result.issues.map((issue, i) => (
+              <li key={i} className="text-xs text-yellow-300 flex items-start gap-1">
+                <span>•</span> {issue}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )}
+  </div>
+)
                   ) : (
                     <label className="cursor-pointer block">
                       <input
