@@ -21,6 +21,7 @@ const translations = {
     aiValidation: 'AI Validation',
     passed: 'Passed',
     issues: 'Issues Found',
+    pending: 'Validating...',
     logout: 'Logout',
     loading: 'Loading...',
     payment: 'Payment',
@@ -30,6 +31,7 @@ const translations = {
     processing: 'Processing...',
     securePayment: 'Secure payment with Stripe',
     price: 'Price',
+    score: 'Score',
     documentTypes: {
       passport: 'Passport',
       photo: 'Biometric Photo',
@@ -73,6 +75,7 @@ const translations = {
     aiValidation: 'AI Doğrulama',
     passed: 'Geçti',
     issues: 'Sorun Bulundu',
+    pending: 'Doğrulanıyor...',
     logout: 'Çıkış',
     loading: 'Yükleniyor...',
     payment: 'Ödeme',
@@ -82,6 +85,7 @@ const translations = {
     processing: 'İşleniyor...',
     securePayment: 'Stripe ile güvenli ödeme',
     price: 'Fiyat',
+    score: 'Puan',
     documentTypes: {
       passport: 'Pasaport',
       photo: 'Biyometrik Fotoğraf',
@@ -125,6 +129,7 @@ const translations = {
     aiValidation: 'Walidacja AI',
     passed: 'Pozytywna',
     issues: 'Znaleziono Problemy',
+    pending: 'Walidacja...',
     logout: 'Wyloguj',
     loading: 'Ładowanie...',
     payment: 'Płatność',
@@ -134,6 +139,7 @@ const translations = {
     processing: 'Przetwarzanie...',
     securePayment: 'Bezpieczna płatność przez Stripe',
     price: 'Cena',
+    score: 'Wynik',
     documentTypes: {
       passport: 'Paszport',
       photo: 'Zdjęcie Biometryczne',
@@ -177,6 +183,7 @@ const translations = {
     aiValidation: 'AI Перевірка',
     passed: 'Пройдено',
     issues: 'Знайдено Проблеми',
+    pending: 'Перевірка...',
     logout: 'Вийти',
     loading: 'Завантаження...',
     payment: 'Оплата',
@@ -186,6 +193,7 @@ const translations = {
     processing: 'Обробка...',
     securePayment: 'Безпечна оплата через Stripe',
     price: 'Ціна',
+    score: 'Бал',
     documentTypes: {
       passport: 'Паспорт',
       photo: 'Біометричне Фото',
@@ -229,6 +237,7 @@ const translations = {
     aiValidation: 'AI Проверка',
     passed: 'Пройдено',
     issues: 'Найдены Проблемы',
+    pending: 'Проверка...',
     logout: 'Выйти',
     loading: 'Загрузка...',
     payment: 'Оплата',
@@ -238,6 +247,7 @@ const translations = {
     processing: 'Обработка...',
     securePayment: 'Безопасная оплата через Stripe',
     price: 'Цена',
+    score: 'Балл',
     documentTypes: {
       passport: 'Паспорт',
       photo: 'Биометрическое Фото',
@@ -331,9 +341,9 @@ export default function ApplicationDetail() {
       console.log('Full response:', response.data);
       if (response.data) {
         const appData = response.data.application || response.data;
-        console.log('App data:', appData);
         setApplication(appData);
         setDocuments(response.data.documents || []);
+        console.log('Documents with AI:', response.data.documents);
       }
     } catch (error) {
       console.error('Error loading application:', error);
@@ -353,9 +363,13 @@ export default function ApplicationDetail() {
       console.log('Upload response:', response.data);
       if (response.data && response.data.document) {
         setDocuments(prev => {
-          const filtered = prev.filter(d => d.document_type !== documentType && d.documentType !== documentType);
+          const filtered = prev.filter(d => d.document_type !== documentType);
           return [...filtered, response.data.document];
         });
+        // 3 saniye sonra sayfayı yenile (AI validation için)
+        setTimeout(() => {
+          loadApplication();
+        }, 3000);
       }
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -391,7 +405,19 @@ export default function ApplicationDetail() {
   };
 
   const getDocumentByType = (type) => {
-    return documents.find(d => d.document_type === type || d.documentType === type);
+    return documents.find(d => d.document_type === type);
+  };
+
+  const getValidationResult = (doc) => {
+    if (!doc || !doc.ai_validation_result) return null;
+    if (typeof doc.ai_validation_result === 'string') {
+      try {
+        return JSON.parse(doc.ai_validation_result);
+      } catch {
+        return null;
+      }
+    }
+    return doc.ai_validation_result;
   };
 
   if (loading) {
@@ -532,13 +558,19 @@ export default function ApplicationDetail() {
             {requiredDocuments.map((doc) => {
               const uploadedDoc = getDocumentByType(doc.type);
               const isUploading = uploading[doc.type];
+              const validationResult = getValidationResult(uploadedDoc);
+              const validationStatus = uploadedDoc?.ai_validation_status;
 
               return (
                 <div
                   key={doc.type}
                   className={`relative rounded-2xl border-2 border-dashed p-6 transition-all duration-300 ${
                     uploadedDoc
-                      ? 'border-green-400/50 bg-green-400/10'
+                      ? validationStatus === 'passed'
+                        ? 'border-green-400/50 bg-green-400/10'
+                        : validationStatus === 'issues'
+                          ? 'border-yellow-400/50 bg-yellow-400/10'
+                          : 'border-blue-400/50 bg-blue-400/10'
                       : 'border-white/20 bg-white/5 hover:border-purple-400/50 hover:bg-purple-400/10'
                   }`}
                 >
@@ -549,61 +581,86 @@ export default function ApplicationDetail() {
                         {doc.required ? t.required : t.optional}
                       </span>
                     </div>
-                    {uploadedDoc && <CheckCircle className="w-6 h-6 text-green-400" />}
+                    {uploadedDoc && (
+                      validationStatus === 'passed' ? (
+                        <CheckCircle className="w-6 h-6 text-green-400" />
+                      ) : validationStatus === 'issues' ? (
+                        <AlertCircle className="w-6 h-6 text-yellow-400" />
+                      ) : (
+                        <Loader className="w-6 h-6 text-blue-400 animate-spin" />
+                      )
+                    )}
                   </div>
 
                   {uploadedDoc ? (
-  <div>
-    <div className="flex items-center gap-3 mb-3">
-      <div className="w-10 h-10 bg-green-400/20 rounded-lg flex items-center justify-center">
-        <FileText className="w-5 h-5 text-green-400" />
-      </div>
-      <div>
-        <p className="text-white text-sm font-medium truncate max-w-[150px]">
-          {uploadedDoc.original_filename || uploadedDoc.originalName || 'Document'}
-        </p>
-        <p className="text-green-400 text-xs">{t.uploaded}</p>
-      </div>
-    </div>
-    {uploadedDoc.ai_validation_result && (
-      <div className={`mt-3 p-3 rounded-xl ${
-        uploadedDoc.ai_validation_status === 'passed' 
-          ? 'bg-green-400/10 border border-green-400/30' 
-          : 'bg-yellow-400/10 border border-yellow-400/30'
-      }`}>
-        <div className="flex items-center gap-2 mb-2">
-          {uploadedDoc.ai_validation_status === 'passed' ? (
-            <CheckCircle className="w-4 h-4 text-green-400" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-yellow-400" />
-          )}
-          <span className={`text-sm font-medium ${
-            uploadedDoc.ai_validation_status === 'passed' ? 'text-green-400' : 'text-yellow-400'
-          }`}>
-            {uploadedDoc.ai_validation_status === 'passed' ? t.passed : t.issues}
-          </span>
-          {uploadedDoc.ai_validation_result.score && (
-            <span className="text-xs text-gray-400 ml-auto">
-              {uploadedDoc.ai_validation_result.score}/100
-            </span>
-          )}
-        </div>
-        {uploadedDoc.ai_validation_result.summary && (
-          <p className="text-xs text-gray-300">{uploadedDoc.ai_validation_result.summary}</p>
-        )}
-        {uploadedDoc.ai_validation_result.issues && uploadedDoc.ai_validation_result.issues.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {uploadedDoc.ai_validation_result.issues.map((issue, i) => (
-              <li key={i} className="text-xs text-yellow-300 flex items-start gap-1">
-                <span>•</span> {issue}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    )}
-  </div>
-)
+                    <div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          validationStatus === 'passed' ? 'bg-green-400/20' : 
+                          validationStatus === 'issues' ? 'bg-yellow-400/20' : 'bg-blue-400/20'
+                        }`}>
+                          <FileText className={`w-5 h-5 ${
+                            validationStatus === 'passed' ? 'text-green-400' : 
+                            validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="text-white text-sm font-medium truncate max-w-[150px]">
+                            {uploadedDoc.original_filename || 'Document'}
+                          </p>
+                          <p className={`text-xs ${
+                            validationStatus === 'passed' ? 'text-green-400' : 
+                            validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
+                          }`}>
+                            {validationStatus === 'passed' ? t.passed : 
+                             validationStatus === 'issues' ? t.issues : t.pending}
+                          </p>
+                        </div>
+                      </div>
+
+                      {validationResult && (
+                        <div className={`mt-3 p-3 rounded-xl ${
+                          validationStatus === 'passed' 
+                            ? 'bg-green-400/10 border border-green-400/30' 
+                            : 'bg-yellow-400/10 border border-yellow-400/30'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-medium ${
+                              validationStatus === 'passed' ? 'text-green-400' : 'text-yellow-400'
+                            }`}>
+                              {t.aiValidation}
+                            </span>
+                            {validationResult.score && (
+                              <span className="text-xs text-gray-300">
+                                {t.score}: {validationResult.score}/100
+                              </span>
+                            )}
+                          </div>
+                          
+                          {validationResult.summary && (
+                            <p className="text-xs text-gray-300 mb-2">{validationResult.summary}</p>
+                          )}
+                          
+                          {validationResult.issues && validationResult.issues.length > 0 && (
+                            <ul className="space-y-1">
+                              {validationResult.issues.map((issue, i) => (
+                                <li key={i} className="text-xs text-yellow-300 flex items-start gap-1">
+                                  <span>•</span> {issue}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          
+                          {validationResult.recommendations && validationResult.recommendations.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-white/10">
+                              {validationResult.recommendations.map((rec, i) => (
+                                <p key={i} className="text-xs text-blue-300">💡 {rec}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <label className="cursor-pointer block">
                       <input
