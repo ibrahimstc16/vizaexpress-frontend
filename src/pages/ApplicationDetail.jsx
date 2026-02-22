@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowLeft, Upload, FileText, CheckCircle, AlertCircle, Clock, X, User, LogOut, Loader, CreditCard, Lock } from 'lucide-react';
+import { Sparkles, ArrowLeft, Upload, FileText, CheckCircle, AlertCircle, Clock, X, User, LogOut, Loader, CreditCard, Lock, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getApplication, uploadDocument, createCheckoutSession } from '../services/api';
 
@@ -22,6 +22,7 @@ const translations = {
     passed: 'Passed',
     issues: 'Issues Found',
     pending: 'Validating...',
+    reupload: 'Upload New',
     logout: 'Logout',
     loading: 'Loading...',
     payment: 'Payment',
@@ -76,6 +77,7 @@ const translations = {
     passed: 'Geçti',
     issues: 'Sorun Bulundu',
     pending: 'Doğrulanıyor...',
+    reupload: 'Yeni Yükle',
     logout: 'Çıkış',
     loading: 'Yükleniyor...',
     payment: 'Ödeme',
@@ -130,6 +132,7 @@ const translations = {
     passed: 'Pozytywna',
     issues: 'Znaleziono Problemy',
     pending: 'Walidacja...',
+    reupload: 'Nowy Plik',
     logout: 'Wyloguj',
     loading: 'Ładowanie...',
     payment: 'Płatność',
@@ -184,6 +187,7 @@ const translations = {
     passed: 'Пройдено',
     issues: 'Знайдено Проблеми',
     pending: 'Перевірка...',
+    reupload: 'Новий Файл',
     logout: 'Вийти',
     loading: 'Завантаження...',
     payment: 'Оплата',
@@ -238,6 +242,7 @@ const translations = {
     passed: 'Пройдено',
     issues: 'Найдены Проблемы',
     pending: 'Проверка...',
+    reupload: 'Новый Файл',
     logout: 'Выйти',
     loading: 'Загрузка...',
     payment: 'Оплата',
@@ -304,6 +309,12 @@ const statusIcons = {
   paid: CheckCircle
 };
 
+// Türkçe karakterleri temizle
+const sanitizeFilename = (filename) => {
+  const turkishChars = {'ç':'c','ğ':'g','ı':'i','ö':'o','ş':'s','ü':'u','Ç':'C','Ğ':'G','İ':'I','Ö':'O','Ş':'S','Ü':'U'};
+  return filename.replace(/[çğışöüÇĞİŞÖÜ]/g, char => turkishChars[char] || char);
+};
+
 export default function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -338,12 +349,10 @@ export default function ApplicationDetail() {
   const loadApplication = async () => {
     try {
       const response = await getApplication(id);
-      console.log('Full response:', response.data);
       if (response.data) {
         const appData = response.data.application || response.data;
         setApplication(appData);
         setDocuments(response.data.documents || []);
-        console.log('Documents with AI:', response.data.documents);
       }
     } catch (error) {
       console.error('Error loading application:', error);
@@ -357,19 +366,23 @@ export default function ApplicationDetail() {
     setUploading({ ...uploading, [documentType]: true });
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      
+      // Dosya adını temizle
+      const cleanFilename = sanitizeFilename(file.name);
+      const cleanFile = new File([file], cleanFilename, { type: file.type });
+      
+      formData.append('file', cleanFile);
       formData.append('documentType', documentType);
       const response = await uploadDocument(id, formData);
-      console.log('Upload response:', response.data);
       if (response.data && response.data.document) {
         setDocuments(prev => {
           const filtered = prev.filter(d => d.document_type !== documentType);
           return [...filtered, response.data.document];
         });
-        // 3 saniye sonra sayfayı yenile (AI validation için)
+        // 5 saniye sonra sayfayı yenile (AI validation için)
         setTimeout(() => {
           loadApplication();
-        }, 3000);
+        }, 5000);
       }
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -594,28 +607,45 @@ export default function ApplicationDetail() {
 
                   {uploadedDoc ? (
                     <div>
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          validationStatus === 'passed' ? 'bg-green-400/20' : 
-                          validationStatus === 'issues' ? 'bg-yellow-400/20' : 'bg-blue-400/20'
-                        }`}>
-                          <FileText className={`w-5 h-5 ${
-                            validationStatus === 'passed' ? 'text-green-400' : 
-                            validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
-                          }`} />
-                        </div>
-                        <div>
-                          <p className="text-white text-sm font-medium truncate max-w-[150px]">
-                            {uploadedDoc.original_filename || 'Document'}
-                          </p>
-                          <p className={`text-xs ${
-                            validationStatus === 'passed' ? 'text-green-400' : 
-                            validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            validationStatus === 'passed' ? 'bg-green-400/20' : 
+                            validationStatus === 'issues' ? 'bg-yellow-400/20' : 'bg-blue-400/20'
                           }`}>
-                            {validationStatus === 'passed' ? t.passed : 
-                             validationStatus === 'issues' ? t.issues : t.pending}
-                          </p>
+                            <FileText className={`w-5 h-5 ${
+                              validationStatus === 'passed' ? 'text-green-400' : 
+                              validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="text-white text-sm font-medium truncate max-w-[120px]">
+                              {uploadedDoc.original_filename || 'Document'}
+                            </p>
+                            <p className={`text-xs ${
+                              validationStatus === 'passed' ? 'text-green-400' : 
+                              validationStatus === 'issues' ? 'text-yellow-400' : 'text-blue-400'
+                            }`}>
+                              {validationStatus === 'passed' ? t.passed : 
+                               validationStatus === 'issues' ? t.issues : t.pending}
+                            </p>
+                          </div>
                         </div>
+                        
+                        {/* Yeniden yükleme butonu */}
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) => handleFileUpload(doc.type, e.target.files[0])}
+                            disabled={isUploading}
+                          />
+                          <div className="flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-gray-300 hover:text-white transition-all text-xs">
+                            <RefreshCw className="w-3 h-3" />
+                            {t.reupload}
+                          </div>
+                        </label>
                       </div>
 
                       {validationResult && (
@@ -630,7 +660,7 @@ export default function ApplicationDetail() {
                             }`}>
                               {t.aiValidation}
                             </span>
-                            {validationResult.score && (
+                            {validationResult.score !== undefined && (
                               <span className="text-xs text-gray-300">
                                 {t.score}: {validationResult.score}/100
                               </span>
