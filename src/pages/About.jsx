@@ -1,27 +1,24 @@
 import { Link } from 'react-router-dom';
 import { Users, Target, Heart, Award, ArrowRight, Linkedin, Twitter, Github } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { useLanguage } from '../contexts/LanguageContext';
 
 const translations = {
   en: {
     hero: { title: 'About', highlight: 'VizaExpress', subtitle: 'Helping expats navigate Polish immigration since 2024' },
-    mission: {
-      title: 'Our Mission',
-      text: 'We believe everyone deserves a fair chance at building a life in Poland. Our AI-powered platform eliminates the guesswork from visa applications, giving you confidence that your documents are perfect before submission.'
-    },
+    mission: { title: 'Our Mission', text: 'We believe everyone deserves a fair chance at building a life in Poland. Our AI-powered platform eliminates the guesswork from visa applications.' },
     values: {
       title: 'Our Values',
-      v1: { title: 'Transparency', desc: 'No hidden fees, clear pricing, honest timelines' },
-      v2: { title: 'Innovation', desc: 'Using Claude AI for 95% accurate document validation' },
-      v3: { title: 'Empathy', desc: 'We understand the stress of immigration processes' },
-      v4: { title: 'Excellence', desc: 'Committed to the highest quality service' }
+      v1: { title: 'Transparency', desc: 'No hidden fees, clear pricing' },
+      v2: { title: 'Innovation', desc: '95% accurate AI validation' },
+      v3: { title: 'Empathy', desc: 'We understand immigration stress' },
+      v4: { title: 'Excellence', desc: 'Highest quality service' }
     },
     team: {
       title: 'Our Team',
       members: [
-        { name: 'Ibrahim S.', role: 'Founder & CEO', bio: 'Former expat who experienced the Karta Pobytu process firsthand' },
+        { name: 'Ibrahim S.', role: 'Founder & CEO', bio: 'Former expat who experienced the process firsthand' },
         { name: 'Anna K.', role: 'Immigration Expert', bio: '10+ years helping foreigners in Poland' },
         { name: 'Tech Team', role: 'AI & Development', bio: 'Building the future of immigration tech' }
       ]
@@ -36,7 +33,7 @@ const translations = {
   },
   pl: {
     hero: { title: 'O', highlight: 'VizaExpress', subtitle: 'Pomagamy obcokrajowcom od 2024' },
-    mission: { title: 'Nasza Misja', text: 'Wierzymy, że każdy zasługuje na szansę. Nasza platforma AI eliminuje domysły z wniosków wizowych.' },
+    mission: { title: 'Nasza Misja', text: 'Wierzymy, że każdy zasługuje na szansę. Nasza platforma AI eliminuje domysły.' },
     values: {
       title: 'Nasze Wartości',
       v1: { title: 'Przejrzystość', desc: 'Brak ukrytych opłat' },
@@ -149,7 +146,6 @@ export default function About() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
         <div className="absolute top-40 right-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
@@ -159,7 +155,6 @@ export default function About() {
       <Navbar />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-16">
-        {/* Hero */}
         <div className="text-center mb-20">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6">
             {t.hero.title}{' '}
@@ -170,7 +165,6 @@ export default function About() {
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">{t.hero.subtitle}</p>
         </div>
 
-        {/* Mission */}
         <div className="group bg-white/10 backdrop-blur-md rounded-3xl p-8 md:p-12 border border-white/20 mb-16 hover:bg-white/15 hover:border-white/30 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 cursor-pointer">
           <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-12 h-12 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
@@ -181,7 +175,6 @@ export default function About() {
           <p className="text-lg text-gray-300 leading-relaxed">{t.mission.text}</p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
           {t.stats.map((stat, i) => (
             <div 
@@ -196,7 +189,6 @@ export default function About() {
           ))}
         </div>
 
-        {/* Values */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-white mb-8 text-center">{t.values.title}</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -218,7 +210,6 @@ export default function About() {
           </div>
         </div>
 
-        {/* Team */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold text-white mb-8 text-center">{t.team.title}</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -243,7 +234,6 @@ export default function About() {
           </div>
         </div>
 
-        {/* CTA */}
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-3xl p-12 text-center hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-500 group cursor-pointer">
           <h2 className="text-3xl font-bold text-white mb-6">{t.cta.title}</h2>
           <Link to="/register" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-purple-600 rounded-full font-bold text-lg hover:scale-110 hover:shadow-xl transition-all">

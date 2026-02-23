@@ -347,50 +347,60 @@ export default function ApplicationDetail() {
   }, [id, navigate]);
 
   const loadApplication = async () => {
-    try {
-      const response = await getApplication(id);
-      if (response.data) {
-        const appData = response.data.application || response.data;
-        setApplication(appData);
-        setDocuments(response.data.documents || []);
-      }
-    } catch (error) {
-      console.error('Error loading application:', error);
-    } finally {
-      setLoading(false);
+  try {
+    const response = await getApplication(id);
+    console.log('Full response:', response.data);
+    if (response.data) {
+      const appData = response.data.application || response.data;
+      setApplication(appData);
+      setDocuments(response.data.documents || []);
+      console.log('Documents:', response.data.documents);
     }
-  };
+  } catch (error) {
+    console.error('Error loading application:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleFileUpload = async (documentType, file) => {
-    if (!file) return;
-    setUploading({ ...uploading, [documentType]: true });
-    try {
-      const formData = new FormData();
-      
-      // Dosya adını temizle
-      const cleanFilename = sanitizeFilename(file.name);
-      const cleanFile = new File([file], cleanFilename, { type: file.type });
-      
-      formData.append('file', cleanFile);
-      formData.append('documentType', documentType);
-      const response = await uploadDocument(id, formData);
-      if (response.data && response.data.document) {
-        setDocuments(prev => {
-          const filtered = prev.filter(d => d.document_type !== documentType);
-          return [...filtered, response.data.document];
-        });
-        // 5 saniye sonra sayfayı yenile (AI validation için)
-        setTimeout(() => {
-          loadApplication();
-        }, 5000);
-      }
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      alert('Upload failed. Please try again.');
-    } finally {
-      setUploading({ ...uploading, [documentType]: false });
+ const handleFileUpload = async (documentType, file) => {
+  if (!file) return;
+  setUploading({ ...uploading, [documentType]: true });
+  try {
+    const formData = new FormData();
+    
+    // Dosya adını temizle
+    const cleanFilename = sanitizeFilename(file.name);
+    const cleanFile = new File([file], cleanFilename, { type: file.type });
+    
+    formData.append('file', cleanFile);
+    formData.append('documentType', documentType);
+    const response = await uploadDocument(id, formData);
+    console.log('Upload response:', response.data);
+    
+    if (response.data && response.data.document) {
+      // Yeni belgeyi hemen göster
+      const newDoc = response.data.document;
+      setDocuments(prev => {
+        // Aynı document_type olan eski belgeyi çıkar
+        const filtered = prev.filter(d => d.document_type !== documentType);
+        // Yeni belgeyi ekle
+        return [...filtered, newDoc];
+      });
     }
-  };
+    
+    // 5 saniye sonra sayfayı yenile (AI validation sonucu için)
+    setTimeout(() => {
+      loadApplication();
+    }, 5000);
+    
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    setUploading({ ...uploading, [documentType]: false });
+  }
+};
 
   const handlePayment = async () => {
     setPaymentLoading(true);
