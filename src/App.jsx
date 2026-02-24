@@ -10,6 +10,8 @@ import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
 import HowItWorks from './pages/HowItWorks';
 import PaymentSuccess from './pages/PaymentSuccess';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminApplicationDetail from './pages/AdminApplicationDetail';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/application/:id" element={<AdminApplicationDetail />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
