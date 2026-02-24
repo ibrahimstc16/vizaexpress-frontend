@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, Shield, Sparkles, Zap, Star, Award, Users, Globe, ChevronDown, Menu, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -149,12 +149,20 @@ const languages = [
 ];
 
 export default function Landing() {
+  const navigate = useNavigate();
   const { lang, setLang } = useLanguage();
   const [langOpen, setLangOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[lang];
   const currentLang = languages.find(l => l.code === lang);
 
+  // Giriş yapmış kullanıcıyı dashboard'a yönlendir
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Animated background */}

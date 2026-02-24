@@ -204,7 +204,7 @@ export default function Dashboard() {
       {/* Header */}
       <nav className="relative z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/dashboard" className="text-2xl font-bold text-white flex items-center gap-2 hover:scale-105 transition-transform">
+          <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2 hover:scale-105 transition-transform">
             <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" style={{animationDuration: '3s'}} />
             VizaExpress
           </Link>
