@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { I18nProvider } from '../i18n';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { I18nProvider, useI18n } from '../i18n';
 import { documentsApi } from '../services/api';
 import DocumentPreview from './DocumentPreview';
 import { HTML, PDF, PNG } from '../test/files';
@@ -22,6 +22,11 @@ function show(props = {}) {
       <DocumentPreview doc={doc} title="Passport" onClose={() => {}} {...props} />
     </I18nProvider>
   );
+}
+
+function SwitchLanguage({ to }) {
+  const { setLang } = useI18n();
+  return <button type="button" onClick={() => setLang(to)}>switch language</button>;
 }
 
 function embeddedContent() {
@@ -86,6 +91,35 @@ describe('DocumentPreview', () => {
     show();
     expect((await screen.findByRole('alert')).textContent).toMatch(/no longer available/i);
     expect(screen.queryByRole('link', { name: /download/i })).toBeNull();
+  });
+
+  it('keeps the fetched file when the language changes', async () => {
+    serve(PNG, 'image/png');
+    render(
+      <I18nProvider>
+        <SwitchLanguage to="pl" />
+        <DocumentPreview doc={{ ...doc, document_type: 'photo' }} title="Photo" onClose={() => {}} />
+      </I18nProvider>
+    );
+    await screen.findByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: 'switch language' }));
+    await screen.findByRole('link', { name: /pobierz/i });
+    expect(documentsApi.file).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('translates an error again when the language changes', async () => {
+    documentsApi.file.mockRejectedValue({ response: { status: 410, data: new Blob() } });
+    render(
+      <I18nProvider>
+        <SwitchLanguage to="tr" />
+        <DocumentPreview doc={doc} title="Passport" onClose={() => {}} />
+      </I18nProvider>
+    );
+    const english = (await screen.findByRole('alert')).textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'switch language' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).not.toBe(english));
+    expect(documentsApi.file).toHaveBeenCalledTimes(1);
   });
 
   it('releases the file when closed', async () => {
