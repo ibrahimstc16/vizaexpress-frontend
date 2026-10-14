@@ -1,7 +1,7 @@
 export const SITE = {
   name: 'VizaExpress',
   url: 'https://vizaexpress.com',
-  supportEmail: 'hello@vizaexpress.pl',
+  supportEmail: 'contact@vizaexpress.com',
 };
 
 // Prices in PLN. Must match PRICES in the backend (routes/payments.js).
