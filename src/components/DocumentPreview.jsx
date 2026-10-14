@@ -25,14 +25,16 @@ export default function DocumentPreview({ doc, title, onClose }) {
         url = URL.createObjectURL(file.blob);
         setView({ status: 'ready', kind: file.kind, url, filename: file.filename });
       })
-      .catch((err) => {
-        if (!cancelled) setView({ status: 'error', message: fileErrorMessage(err, t) });
+      .catch((error) => {
+        if (!cancelled) setView({ status: 'error', error });
       });
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [id, documentType, t]);
+    // The message is translated when shown, so a language change does not
+    // fetch the file again.
+  }, [id, documentType]);
 
   return (
     <Modal open onClose={onClose} title={title} closeLabel={t('common.close')} size="max-w-3xl">
@@ -42,7 +44,7 @@ export default function DocumentPreview({ doc, title, onClose }) {
         </div>
       )}
 
-      {view.status === 'error' && <Alert tone="error">{view.message}</Alert>}
+      {view.status === 'error' && <Alert tone="error">{fileErrorMessage(view.error, t)}</Alert>}
 
       {view.status === 'ready' && view.kind === 'image' && (
         <img
