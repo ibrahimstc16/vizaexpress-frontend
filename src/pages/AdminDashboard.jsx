@@ -1,228 +1,167 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Users, FileText, CreditCard, CheckCircle, Clock, AlertCircle, LogOut, Eye, Shield } from 'lucide-react';
-import api from '../services/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Banknote, ChevronRight, Files, FolderOpen, Search, Users } from 'lucide-react';
+import { adminApi, errorMessage } from '../services/api';
+import { useI18n } from '../i18n';
+import Card from '../components/ui/Card';
+import Alert from '../components/ui/Alert';
+import Button from '../components/ui/Button';
+import { StatusBadge } from '../components/ui/Badge';
+import { PageSpinner } from '../components/ui/Spinner';
+import { cx } from '../components/ui/cx';
+import { ADMIN_STATUS, PLAN_NAMES, formatDateTime } from './admin/shared';
+
+function Stat({ Icon, label, value }) {
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <p className="text-sm text-ink-500">{label}</p>
+      </div>
+      <p className="mt-4 font-display text-3xl font-bold text-ink-950">{value}</p>
+    </Card>
+  );
+}
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
+  const { t } = useI18n();
   const [stats, setStats] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [tab, setTab] = useState('applications');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (!token || !userData) {
-      navigate('/login');
-      return;
-    }
-    
-    setUser(JSON.parse(userData));
-    loadData();
-  }, [navigate]);
-
-  const loadData = async () => {
+  const load = useCallback(async () => {
+    setError('');
     try {
-      const [statsRes, appsRes] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/applications')
-      ]);
-      setStats(statsRes.data);
-      setApplications(appsRes.data.applications || []);
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-      if (error.response?.status === 403) {
-        alert('Admin access required!');
-        navigate('/dashboard');
-      }
+      const [s, a, u] = await Promise.all([adminApi.stats(), adminApi.applications(), adminApi.users()]);
+      setStats(s.data);
+      setApplications(a.data.applications || []);
+      setUsers(u.data.users || []);
+    } catch (err) {
+      setError(errorMessage(err, t));
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const getStatusColor = (status) => {
-    const colors = {
-      created: 'bg-gray-500',
-      pending: 'bg-yellow-500',
-      reviewing: 'bg-blue-500',
-      approved: 'bg-green-500',
-      rejected: 'bg-red-500',
-      paid: 'bg-purple-500'
-    };
-    return colors[status] || 'bg-gray-500';
-  };
+  const q = query.trim().toLowerCase();
+  const filteredApps = useMemo(
+    () =>
+      applications.filter(
+        (a) =>
+          (status === 'all' || (a.status || 'created') === status) &&
+          (!q || `${a.full_name} ${a.email}`.toLowerCase().includes(q))
+      ),
+    [applications, status, q]
+  );
+  const filteredUsers = useMemo(
+    () => users.filter((u) => !q || `${u.full_name} ${u.email} ${u.phone || ''}`.toLowerCase().includes(q)),
+    [users, q]
+  );
 
-  const getStatusText = (status) => {
-    const texts = {
-      created: 'Oluşturuldu',
-      pending: 'Beklemede',
-      reviewing: 'İnceleniyor',
-      approved: 'Onaylandı',
-      rejected: 'Reddedildi',
-      paid: 'Ödendi'
-    };
-    return texts[status] || status;
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <Sparkles className="w-16 h-16 text-yellow-400 animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <PageSpinner />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Navbar */}
-      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-yellow-400" />
-            VizaExpress
-            <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              ADMIN
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-white">{user?.email}</span>
-            <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300">
-              <LogOut className="w-5 h-5" />
-              Çıkış
-            </button>
+    <div className="animate-fade-up">
+      <h1 className="text-3xl font-bold">Yönetim paneli</h1>
+      <p className="mt-1.5 text-ink-600">Başvuruları inceleyin, durumlarını güncelleyin.</p>
+
+      {error && (
+        <Alert tone="error" className="mt-6" action={<Button size="sm" variant="secondary" onClick={load}>Tekrar dene</Button>}>
+          {error}
+        </Alert>
+      )}
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat Icon={Users} label="Kullanıcılar" value={stats?.totalUsers ?? 0} />
+        <Stat Icon={FolderOpen} label="Başvurular" value={stats?.totalApplications ?? 0} />
+        <Stat Icon={Banknote} label="Ödenen başvurular" value={stats?.paidApplications ?? 0} />
+        <Stat Icon={Files} label="Yüklenen belgeler" value={stats?.totalDocuments ?? 0} />
+      </div>
+
+      <Card className="mt-8 overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-ink-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex gap-1 rounded-xl bg-ink-100 p-1">
+            {[
+              ['applications', `Başvurular (${applications.length})`],
+              ['users', `Kullanıcılar (${users.length})`],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cx('rounded-lg px-3.5 py-1.5 text-sm font-semibold', tab === key ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-600 hover:text-ink-900')}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-white mb-8">Admin Panel</h1>
-
-        {/* İstatistikler */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Toplam Kullanıcı</p>
-                <p className="text-2xl font-bold text-white">{stats?.totalUsers || 0}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Toplam Başvuru</p>
-                <p className="text-2xl font-bold text-white">{stats?.totalApplications || 0}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Ödenen Başvuru</p>
-                <p className="text-2xl font-bold text-white">{stats?.paidApplications || 0}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Toplam Belge</p>
-                <p className="text-2xl font-bold text-white">{stats?.totalDocuments || 0}</p>
-              </div>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {tab === 'applications' && (
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="h-10 rounded-xl border border-ink-200 bg-white px-3 text-sm text-ink-800 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100"
+                aria-label="Duruma göre filtrele"
+              >
+                <option value="all">Tüm durumlar</option>
+                {Object.entries(ADMIN_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            )}
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="İsim veya e-posta ara"
+                className="h-10 w-full rounded-xl border border-ink-200 bg-white pl-9 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100 sm:w-64"
+              />
+            </label>
           </div>
         </div>
 
-        {/* Başvuru Listesi */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 overflow-hidden">
-          <div className="p-6 border-b border-white/10">
-            <h2 className="text-xl font-bold text-white">Tüm Başvurular</h2>
-          </div>
-
-          {applications.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">Henüz başvuru yok</p>
-            </div>
+        {tab === 'applications' ? (
+          filteredApps.length === 0 ? (
+            <p className="px-6 py-14 text-center text-ink-500">Gösterilecek başvuru yok.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-white/5">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-ink-50/80 text-xs font-semibold uppercase tracking-wide text-ink-500">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">Kullanıcı</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">Paket</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">Durum</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">Belgeler</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">Tarih</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">İşlem</th>
+                    <th className="px-5 py-3">Başvuran</th>
+                    <th className="px-5 py-3">Paket</th>
+                    <th className="px-5 py-3">Durum</th>
+                    <th className="px-5 py-3">Belgeler</th>
+                    <th className="px-5 py-3">Tarih</th>
+                    <th className="px-5 py-3"><span className="sr-only">Aç</span></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
-                  {applications.map((app) => (
-                    <tr key={app.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-white font-medium">{app.full_name}</p>
-                          <p className="text-gray-400 text-sm">{app.email}</p>
-                        </div>
+                <tbody className="divide-y divide-ink-100">
+                  {filteredApps.map((a) => (
+                    <tr key={a.id} className="hover:bg-ink-50/60">
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-ink-900">{a.full_name}</p>
+                        <p className="text-ink-500">{a.email}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
-                          {app.package_type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 ${getStatusColor(app.status)} text-white rounded-full text-sm`}>
-                          {getStatusText(app.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-white">
-                        {app.document_count || 0} belge
-                      </td>
-                      <td className="px-6 py-4 text-gray-400 text-sm">
-                        {formatDate(app.created_at)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link
-                          to={`/admin/application/${app.id}`}
-                          className="flex items-center gap-1 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg text-sm transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
+                      <td className="px-5 py-4 text-ink-700">{PLAN_NAMES[a.package_type] || a.package_type}</td>
+                      <td className="px-5 py-4"><StatusBadge status={a.status || 'created'} label={ADMIN_STATUS[a.status || 'created'] || a.status} /></td>
+                      <td className="px-5 py-4 text-ink-700">{a.document_count}</td>
+                      <td className="whitespace-nowrap px-5 py-4 text-ink-500">{formatDateTime(a.created_at)}</td>
+                      <td className="px-5 py-4 text-right">
+                        <Link to={`/admin/application/${a.id}`} className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">
                           İncele
+                          <ChevronRight className="h-4 w-4" aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>
@@ -230,9 +169,40 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        ) : filteredUsers.length === 0 ? (
+          <p className="px-6 py-14 text-center text-ink-500">Gösterilecek kullanıcı yok.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="bg-ink-50/80 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                <tr>
+                  <th className="px-5 py-3">Kullanıcı</th>
+                  <th className="px-5 py-3">Telefon</th>
+                  <th className="px-5 py-3">Başvuru</th>
+                  <th className="px-5 py-3">Kayıt tarihi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {filteredUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-ink-900">
+                        {u.full_name}
+                        {u.is_admin && <span className="ml-2 rounded-full bg-ink-900 px-2 py-0.5 text-[11px] font-semibold text-white">Admin</span>}
+                      </p>
+                      <p className="text-ink-500">{u.email}</p>
+                    </td>
+                    <td className="px-5 py-4 text-ink-700">{u.phone || '–'}</td>
+                    <td className="px-5 py-4 text-ink-700">{u.application_count}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-ink-500">{formatDateTime(u.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

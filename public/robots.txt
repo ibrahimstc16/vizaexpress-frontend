@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /application/
+Disallow: /admin
+Sitemap: https://vizaexpress.com/sitemap.xml
