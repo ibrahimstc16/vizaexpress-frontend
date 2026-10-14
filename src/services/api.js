@@ -96,7 +96,10 @@ export const documentsApi = {
       onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded / e.total) * 100)),
     });
   },
-  file: (id) => api.get(`/documents/${id}/file`, { responseType: 'blob' }),
+  file: async (id) => {
+    const res = await api.get(`/documents/${id}/file`, { responseType: 'blob' });
+    return { blob: res.data, contentType: res.headers['content-type'] };
+  },
 };
 
 export const paymentsApi = {
