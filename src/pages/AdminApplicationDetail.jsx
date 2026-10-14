@@ -1,266 +1,212 @@
-import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, User, Mail, Phone, Download, Shield } from 'lucide-react';
-import api from '../services/api';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, ExternalLink, Mail, Phone } from 'lucide-react';
+import { adminApi, documentsApi, errorMessage } from '../services/api';
+import { useI18n } from '../i18n';
+import { DOCUMENT_TYPES } from '../config/site';
+import Card from '../components/ui/Card';
+import Alert from '../components/ui/Alert';
+import Button from '../components/ui/Button';
+import Badge, { StatusBadge } from '../components/ui/Badge';
+import { PageSpinner } from '../components/ui/Spinner';
+import DocIcon from '../components/marketing/DocIcon';
+import { ADMIN_STATUS, PLAN_NAMES, formatDateTime } from './admin/shared';
+
+const DOC_NAMES = {
+  passport: 'Pasaport',
+  photo: 'Biyometrik fotoğraf',
+  residence_proof: 'Adres belgesi',
+  insurance: 'Sağlık sigortası',
+  work_contract: 'İş sözleşmesi',
+  application_form: 'Başvuru formu',
+};
+const VALIDATION = {
+  passed: { tone: 'success', label: 'Uygun' },
+  issues: { tone: 'warning', label: 'Sorunlu' },
+  error: { tone: 'danger', label: 'Kontrol edilemedi' },
+  pending: { tone: 'info', label: 'Kontrol ediliyor' },
+};
+
+function parse(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminApplicationDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const { t } = useI18n();
   const [application, setApplication] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState('');
+  const [nextStatus, setNextStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
 
-  useEffect(() => {
-    loadApplication();
-  }, [id]);
-
-  const loadApplication = async () => {
+  const load = useCallback(async () => {
     try {
-      const response = await api.get(`/admin/applications/${id}`);
-      setApplication(response.data.application);
-      setDocuments(response.data.documents || []);
-    } catch (error) {
-      console.error('Error loading application:', error);
-      if (error.response?.status === 403) {
-        navigate('/dashboard');
-      }
+      const { data } = await adminApi.application(id);
+      setApplication(data.application);
+      setNextStatus(data.application.status || 'created');
+      setDocuments(data.documents || []);
+    } catch (err) {
+      setError(errorMessage(err, t));
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, t]);
 
-  const updateStatus = async (newStatus) => {
-    setUpdating(true);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const saveStatus = async () => {
+    setSaving(true);
+    setNotice('');
+    setError('');
     try {
-      await api.put(`/admin/applications/${id}/status`, { status: newStatus });
-      setApplication({ ...application, status: newStatus });
-      alert('Durum güncellendi!');
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Hata oluştu!');
+      await adminApi.updateStatus(id, nextStatus);
+      setApplication((a) => ({ ...a, status: nextStatus }));
+      setNotice('Durum güncellendi ve başvurana e-posta gönderildi.');
+    } catch (err) {
+      setError(errorMessage(err, t));
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      created: 'bg-gray-500',
-      pending: 'bg-yellow-500',
-      reviewing: 'bg-blue-500',
-      approved: 'bg-green-500',
-      rejected: 'bg-red-500',
-      paid: 'bg-purple-500'
-    };
-    return colors[status] || 'bg-gray-500';
+  const view = async (doc) => {
+    const win = window.open('', '_blank');
+    try {
+      const res = await documentsApi.file(doc.id);
+      const url = URL.createObjectURL(res.data);
+      if (win) win.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      win?.close();
+      setError(err.response?.status === 410 ? 'Bu dosya sunucuda artık yok (yeniden dağıtımda silinmiş olabilir).' : errorMessage(err, t));
+    }
   };
 
-  const getValidationColor = (status) => {
-    if (status === 'passed') return 'text-green-400 bg-green-400/20';
-    if (status === 'issues') return 'text-yellow-400 bg-yellow-400/20';
-    return 'text-blue-400 bg-blue-400/20';
-  };
+  if (loading) return <PageSpinner />;
+  if (!application) return <Alert tone="error">{error || 'Başvuru bulunamadı.'}</Alert>;
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getDocumentTypeLabel = (type) => {
-    const labels = {
-      passport: 'Pasaport',
-      photo: 'Biyometrik Fotoğraf',
-      residence_proof: 'İkamet Belgesi',
-      insurance: 'Sağlık Sigortası',
-      work_contract: 'İş Sözleşmesi',
-      application_form: 'Başvuru Formu'
-    };
-    return labels[type] || type;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <Sparkles className="w-16 h-16 text-yellow-400 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!application) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <p className="text-white">Başvuru bulunamadı</p>
-      </div>
-    );
-  }
+  const byType = Object.fromEntries(documents.map((d) => [d.document_type, d]));
+  const status = application.status || 'created';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Navbar */}
-      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-yellow-400" />
-            VizaExpress
-            <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              ADMIN
-            </span>
-          </Link>
-        </div>
-      </nav>
+    <div className="animate-fade-up">
+      <Link to="/admin" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-ink-900">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Tüm başvurular
+      </Link>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <Link to="/admin" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-          Admin Panel'e Dön
-        </Link>
-
-        {/* Kullanıcı Bilgileri */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 mb-6">
-          <h2 className="text-xl font-bold text-white mb-4">Kullanıcı Bilgileri</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3">
-              <User className="w-5 h-5 text-purple-400" />
+      <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-6">
+          <Card className="p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold">{application.full_name}</h1>
+              <StatusBadge status={status} label={ADMIN_STATUS[status] || status} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-600">
+              <a href={`mailto:${application.email}`} className="inline-flex items-center gap-1.5 hover:text-brand-700">
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                {application.email}
+              </a>
+              {application.phone && (
+                <a href={`tel:${application.phone}`} className="inline-flex items-center gap-1.5 hover:text-brand-700">
+                  <Phone className="h-4 w-4" aria-hidden="true" />
+                  {application.phone}
+                </a>
+              )}
+            </div>
+            <dl className="mt-5 grid gap-4 border-t border-ink-100 pt-5 text-sm sm:grid-cols-3">
               <div>
-                <p className="text-gray-400 text-sm">Ad Soyad</p>
-                <p className="text-white">{application.full_name}</p>
+                <dt className="text-ink-500">Paket</dt>
+                <dd className="mt-0.5 font-semibold text-ink-900">{PLAN_NAMES[application.package_type] || application.package_type}</dd>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-purple-400" />
               <div>
-                <p className="text-gray-400 text-sm">Email</p>
-                <p className="text-white">{application.email}</p>
+                <dt className="text-ink-500">Oluşturulma</dt>
+                <dd className="mt-0.5 font-semibold text-ink-900">{formatDateTime(application.created_at)}</dd>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-purple-400" />
               <div>
-                <p className="text-gray-400 text-sm">Telefon</p>
-                <p className="text-white">{application.phone || '-'}</p>
+                <dt className="text-ink-500">Başvuru no</dt>
+                <dd className="mt-0.5 font-mono text-xs font-semibold text-ink-900">{String(application.id)}</dd>
               </div>
-            </div>
-          </div>
-        </div>
+            </dl>
+          </Card>
 
-        {/* Başvuru Bilgileri */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 mb-6">
-          <h2 className="text-xl font-bold text-white mb-4">Başvuru Bilgileri</h2>
-          <div className="grid md:grid-cols-4 gap-4 mb-6">
-            <div>
-              <p className="text-gray-400 text-sm">Paket</p>
-              <p className="text-white font-semibold capitalize">{application.package_type}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Durum</p>
-              <span className={`inline-block px-3 py-1 ${getStatusColor(application.status)} text-white rounded-full text-sm mt-1`}>
-                {application.status}
-              </span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Ödeme</p>
-              <p className={`font-semibold ${application.paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                {application.paid ? 'Ödendi' : 'Ödenmedi'}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">Tarih</p>
-              <p className="text-white">{formatDate(application.created_at)}</p>
-            </div>
-          </div>
+          {error && <Alert tone="error">{error}</Alert>}
 
-          {/* Durum Güncelleme */}
-          <div className="border-t border-white/10 pt-4">
-            <p className="text-gray-400 text-sm mb-3">Durumu Güncelle:</p>
-            <div className="flex flex-wrap gap-2">
-              {['pending', 'reviewing', 'approved', 'rejected'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => updateStatus(status)}
-                  disabled={updating || application.status === status}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    application.status === status
-                      ? 'bg-white/20 text-white cursor-not-allowed'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white'
-                  }`}
-                >
-                  {status === 'pending' && 'Beklemede'}
-                  {status === 'reviewing' && 'İnceleniyor'}
-                  {status === 'approved' && 'Onayla'}
-                  {status === 'rejected' && 'Reddet'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Belgeler */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-purple-400" />
-            Yüklenen Belgeler ({documents.length})
-          </h2>
-
-          {documents.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">Henüz belge yüklenmemiş</p>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {documents.map((doc) => {
-                const validation = doc.ai_validation_result || {};
+          <div>
+            <h2 className="text-lg font-bold">Belgeler ({documents.length})</h2>
+            <div className="mt-4 space-y-3">
+              {DOCUMENT_TYPES.map((spec) => {
+                const doc = byType[spec.type];
+                const result = parse(doc?.ai_validation_result);
+                const v = doc ? VALIDATION[doc.ai_validation_status] || VALIDATION.pending : null;
                 return (
-                  <div key={doc.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-white font-medium">{getDocumentTypeLabel(doc.document_type)}</h3>
-                        <p className="text-gray-400 text-sm truncate max-w-[200px]">{doc.original_filename}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getValidationColor(doc.ai_validation_status)}`}>
-                        {doc.ai_validation_status === 'passed' ? 'Geçti' : doc.ai_validation_status === 'issues' ? 'Sorunlu' : 'Bekliyor'}
+                  <Card key={spec.type} className="p-5">
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-ink-500">
+                        <DocIcon type={spec.type} className="h-5 w-5" />
                       </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-sans text-base font-semibold">{DOC_NAMES[spec.type]}</h3>
+                          {!spec.required && <Badge>İsteğe bağlı</Badge>}
+                          {v ? <Badge tone={v.tone}>{v.label}</Badge> : <Badge>Yüklenmedi</Badge>}
+                          {result?.score > 0 && <span className="text-xs text-ink-500">Puan {result.score}/100</span>}
+                        </div>
+                        {doc && (
+                          <>
+                            <p className="mt-1 truncate text-sm text-ink-500">{doc.original_filename} · {formatDateTime(doc.created_at)}</p>
+                            {result?.summary && <p className="mt-2 text-sm text-ink-700">{result.summary}</p>}
+                            {Array.isArray(result?.issues) && result.issues.length > 0 && (
+                              <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-amber-800">
+                                {result.issues.map((i, n) => <li key={n}>{typeof i === 'string' ? i : i?.message}</li>)}
+                              </ul>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {doc && (
+                        <Button size="sm" variant="secondary" onClick={() => view(doc)}>
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          Görüntüle
+                        </Button>
+                      )}
                     </div>
-
-                    {validation.score !== undefined && (
-                      <div className="mb-2">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-400">AI Puanı</span>
-                          <span className="text-white">{validation.score}/100</span>
-                        </div>
-                        <div className="w-full bg-white/10 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${validation.score >= 70 ? 'bg-green-500' : 'bg-yellow-500'}`}
-                            style={{ width: `${validation.score}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-
-                    {validation.summary && (
-                      <p className="text-gray-300 text-sm mb-2">{validation.summary}</p>
-                    )}
-
-                    {validation.issues && validation.issues.length > 0 && (
-                      <div className="mt-2 p-2 bg-yellow-500/10 rounded-lg">
-                        <p className="text-yellow-400 text-xs font-medium mb-1">Sorunlar:</p>
-                        <ul className="text-yellow-300 text-xs space-y-1">
-                          {validation.issues.map((issue, i) => (
-                            <li key={i}>• {issue}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
+
+        <aside className="lg:sticky lg:top-24 lg:h-fit">
+          <Card className="p-5">
+            <h2 className="font-sans text-base font-semibold">Durumu güncelle</h2>
+            <p className="mt-1 text-sm text-ink-600">Başvurana durum değişikliği e-postayla bildirilir.</p>
+            <div className="mt-4 space-y-2" role="radiogroup" aria-label="Durum">
+              {Object.entries(ADMIN_STATUS).map(([key, label]) => (
+                <label key={key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50/60">
+                  <input type="radio" name="status" value={key} checked={nextStatus === key} onChange={() => setNextStatus(key)} className="accent-brand-600" />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {notice && <Alert tone="success" className="mt-4">{notice}</Alert>}
+            <Button onClick={saveStatus} loading={saving} disabled={nextStatus === status} className="mt-4 w-full">
+              Kaydet
+            </Button>
+          </Card>
+        </aside>
       </div>
     </div>
   );

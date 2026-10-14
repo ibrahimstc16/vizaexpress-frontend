@@ -1,16 +1,21 @@
-# React + Vite
+# VizaExpress frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite + Tailwind CSS site for [vizaexpress.com](https://vizaexpress.com), deployed on Vercel.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+VITE_API_URL=http://localhost:3000/api npm run dev
+```
 
-## React Compiler
+`VITE_API_URL` defaults to the production Railway API when it is not set.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Structure
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `src/i18n/` — all UI text. `en.js` is the source; `pl.js`, `uk.js`, `tr.js`, `ru.js` must keep the same keys.
+- `src/config/site.js` — plans and prices (must match the backend), document types, languages, support email.
+- `src/components/ui/` — buttons, inputs, cards, badges, modal.
+- `src/components/layout/` — public site, app and auth layouts.
+- `src/lib/auth.jsx` — session handling and protected routes.
+- `src/pages/` — one file per route; the admin panel is in Turkish.

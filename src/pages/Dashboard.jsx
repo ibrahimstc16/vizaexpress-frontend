@@ -1,333 +1,200 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Plus, FileText, Clock, CheckCircle, AlertCircle, LogOut, User, ChevronDown } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { getApplications, createApplication } from '../services/api';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronRight, FolderOpen, Plus } from 'lucide-react';
+import { useI18n } from '../i18n';
+import { useAuth } from '../lib/auth';
+import { applicationsApi, errorMessage } from '../services/api';
+import { DOCUMENT_TYPES, PLANS, PLAN_PRICES } from '../config/site';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Alert from '../components/ui/Alert';
+import Modal from '../components/ui/Modal';
+import { StatusBadge } from '../components/ui/Badge';
+import { PageSpinner } from '../components/ui/Spinner';
+import { cx } from '../components/ui/cx';
 
-const translations = {
-  en: {
-    welcome: 'Welcome back',
-    dashboard: 'Dashboard',
-    myApplications: 'My Applications',
-    newApplication: 'New Application',
-    noApplications: 'No applications yet',
-    startFirst: 'Start your first Karta Pobytu application',
-    createNew: 'Create Application',
-    status: { draft: 'Draft', pending: 'Pending', approved: 'Approved', rejected: 'Rejected', created: 'Created' },
-    packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
-    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
-    logout: 'Logout',
-    loading: 'Loading...'
-  },
-  pl: {
-    welcome: 'Witaj ponownie',
-    dashboard: 'Panel',
-    myApplications: 'Moje Wnioski',
-    newApplication: 'Nowy Wniosek',
-    noApplications: 'Brak wniosków',
-    startFirst: 'Rozpocznij swój pierwszy wniosek o Kartę Pobytu',
-    createNew: 'Utwórz Wniosek',
-    status: { draft: 'Szkic', pending: 'W Trakcie', approved: 'Zatwierdzony', rejected: 'Odrzucony', created: 'Utworzony' },
-    packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
-    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
-    logout: 'Wyloguj',
-    loading: 'Ładowanie...'
-  },
-  uk: {
-    welcome: 'З поверненням',
-    dashboard: 'Панель',
-    myApplications: 'Мої Заявки',
-    newApplication: 'Нова Заявка',
-    noApplications: 'Немає заявок',
-    startFirst: 'Почніть свою першу заявку на Карту Побиту',
-    createNew: 'Створити Заявку',
-    status: { draft: 'Чернетка', pending: 'На Розгляді', approved: 'Схвалено', rejected: 'Відхилено', created: 'Створено' },
-    packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
-    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
-    logout: 'Вийти',
-    loading: 'Завантаження...'
-  },
-  tr: {
-    welcome: 'Tekrar hoş geldiniz',
-    dashboard: 'Panel',
-    myApplications: 'Başvurularım',
-    newApplication: 'Yeni Başvuru',
-    noApplications: 'Henüz başvuru yok',
-    startFirst: 'İlk Karta Pobytu başvurunuzu oluşturun',
-    createNew: 'Başvuru Oluştur',
-    status: { draft: 'Taslak', pending: 'İncelemede', approved: 'Onaylandı', rejected: 'Reddedildi', created: 'Oluşturuldu' },
-    packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
-    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
-    logout: 'Çıkış',
-    loading: 'Yükleniyor...'
-  },
-  ru: {
-    welcome: 'С возвращением',
-    dashboard: 'Панель',
-    myApplications: 'Мои Заявки',
-    newApplication: 'Новая Заявка',
-    noApplications: 'Нет заявок',
-    startFirst: 'Начните свою первую заявку на Карту Побыту',
-    createNew: 'Создать Заявку',
-    status: { draft: 'Черновик', pending: 'На Рассмотрении', approved: 'Одобрено', rejected: 'Отклонено', created: 'Создано' },
-    packages: { express: 'Express - 599 PLN', smart: 'Smart - 1,299 PLN', concierge: 'Concierge - 2,499 PLN' },
-    packageNames: { express: 'Express', smart: 'Smart', concierge: 'Concierge' },
-    logout: 'Выйти',
-    loading: 'Загрузка...'
-  }
-};
+const REQUIRED_COUNT = DOCUMENT_TYPES.filter((d) => d.required).length;
 
-const statusIcons = {
-  draft: Clock,
-  pending: AlertCircle,
-  approved: CheckCircle,
-  rejected: AlertCircle,
-  created: Clock
-};
+function PlanPicker({ open, initialPlan, onClose, onCreated }) {
+  const { t, formatNumber } = useI18n();
+  const [plan, setPlan] = useState(initialPlan || 'smart');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
 
-const statusColors = {
-  draft: 'text-yellow-400 bg-yellow-400/20',
-  pending: 'text-blue-400 bg-blue-400/20',
-  approved: 'text-green-400 bg-green-400/20',
-  rejected: 'text-red-400 bg-red-400/20',
-  created: 'text-purple-400 bg-purple-400/20'
-};
+  const create = async () => {
+    setCreating(true);
+    setError('');
+    try {
+      const { data } = await applicationsApi.create(plan);
+      onCreated(data.application);
+    } catch (err) {
+      setError(errorMessage(err, t));
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('dashboard.choosePlanTitle')} description={t('dashboard.choosePlanText')} closeLabel={t('common.close')}>
+      <div className="space-y-3" role="radiogroup" aria-label={t('dashboard.choosePlanTitle')}>
+        {PLANS.map((p) => {
+          const selected = plan === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setPlan(p.id)}
+              className={cx(
+                'flex w-full items-start gap-4 rounded-xl border p-4 text-left transition',
+                selected ? 'border-brand-600 bg-brand-50/60 ring-1 ring-brand-600' : 'border-ink-200 hover:border-ink-300'
+              )}
+            >
+              <span className={cx('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2', selected ? 'border-brand-600' : 'border-ink-300')}>
+                {selected && <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />}
+              </span>
+              <span className="flex-1">
+                <span className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-ink-900">
+                    {t(`plans.${p.id}.name`)}
+                    {p.popular && <span className="ml-2 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{t('common.mostPopular')}</span>}
+                  </span>
+                  <span className="whitespace-nowrap font-semibold text-ink-900">{formatNumber(p.price)} {t('common.pln')}</span>
+                </span>
+                <span className="mt-1 block text-sm text-ink-600">{t(`plans.${p.id}.description`)}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {error && <Alert tone="error" className="mt-4">{error}</Alert>}
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button onClick={create} loading={creating}>{creating ? t('dashboard.creating') : t('dashboard.create')}</Button>
+      </div>
+    </Modal>
+  );
+}
+
+function ApplicationRow({ app }) {
+  const { t, formatDate } = useI18n();
+  const status = app.status || 'created';
+  const done = Math.min(Number(app.passed_required_count) || 0, REQUIRED_COUNT);
+  const pct = Math.round((done / REQUIRED_COUNT) * 100);
+
+  return (
+    <Link
+      to={`/application/${app.id}`}
+      className="group flex flex-col gap-4 rounded-2xl border border-ink-100 bg-white p-5 shadow-card transition hover:border-ink-200 hover:shadow-lift sm:flex-row sm:items-center sm:p-6"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="font-sans text-base font-semibold text-ink-900">
+            {t('application.title', { plan: t(`plans.${app.package_type}.name`) })}
+          </h3>
+          <StatusBadge status={status} label={t(`status.${status}`)} />
+        </div>
+        <p className="mt-1 text-sm text-ink-500">{t('dashboard.created', { date: formatDate(app.created_at) })}</p>
+      </div>
+      <div className="w-full sm:w-56">
+        <div className="flex justify-between text-xs font-medium text-ink-500">
+          <span>{t('dashboard.documentsProgress', { done, total: REQUIRED_COUNT })}</span>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+          <div className={cx('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-brand-600')} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <ChevronRight className="hidden h-5 w-5 text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-ink-500 sm:block" aria-hidden="true" />
+    </Link>
+  );
+}
 
 export default function Dashboard() {
+  const { t } = useI18n();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { lang } = useLanguage();
-  const [user, setUser] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const planParam = PLAN_PRICES[params.get('plan')] ? params.get('plan') : null;
+
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showNewAppMenu, setShowNewAppMenu] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const t = translations[lang];
+  const [error, setError] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(!!planParam);
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (!token || !userData) {
-      navigate('/login');
-      return;
-    }
-    
+  const load = useCallback(async () => {
+    setError('');
     try {
-      setUser(JSON.parse(userData));
-    } catch (e) {
-      navigate('/login');
-      return;
-    }
-    
-    loadApplications();
-  }, [navigate]);
-
-  const loadApplications = async () => {
-    try {
-      const response = await getApplications();
-      if (Array.isArray(response.data)) {
-        setApplications(response.data);
-      } else if (response.data && Array.isArray(response.data.applications)) {
-        setApplications(response.data.applications);
-      } else {
-        setApplications([]);
-      }
-    } catch (error) {
-      console.error('Error loading applications:', error);
-      setApplications([]);
+      const { data } = await applicationsApi.list();
+      setApplications(data.applications || []);
+    } catch (err) {
+      setError(errorMessage(err, t));
     } finally {
       setLoading(false);
     }
+  }, [t]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const closePicker = () => {
+    setPickerOpen(false);
+    if (planParam) setParams({}, { replace: true });
   };
 
-  const handleCreateApplication = async (packageType) => {
-    setCreating(true);
-    try {
-      const response = await createApplication({ packageType });
-      if (response.data && response.data.id) {
-        navigate(`/application/${response.data.id}`);
-      } else {
-        // Sayfayı yenile
-        loadApplications();
-      }
-    } catch (error) {
-      console.error('Error creating application:', error);
-      alert('Error creating application');
-    } finally {
-      setCreating(false);
-      setShowNewAppMenu(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '-';
-      return date.toLocaleDateString();
-    } catch {
-      return '-';
-    }
-  };
-
-  const getPackageName = (packageType) => {
-    if (!packageType) return 'Standard';
-    const name = t.packageNames[packageType.toLowerCase()];
-    return name || packageType.charAt(0).toUpperCase() + packageType.slice(1);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Sparkles className="w-16 h-16 text-yellow-400 animate-spin mx-auto mb-4" />
-          <p className="text-white text-xl">{t.loading}</p>
-        </div>
-      </div>
-    );
-  }
+  const firstName = (user?.fullName || '').split(' ')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute top-40 right-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-      </div>
-
-      {/* Header */}
-      <nav className="relative z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold text-white flex items-center gap-2 hover:scale-105 transition-transform">
-            <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" style={{animationDuration: '3s'}} />
-            VizaExpress
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-xl border border-white/20">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-white font-medium hidden sm:block">{user?.fullName || 'User'}</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 hover:text-red-200 transition-all hover:scale-105"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="hidden sm:block">{t.logout}</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            {t.welcome}, <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{user?.fullName?.split(' ')[0] || 'User'}</span>! 👋
-          </h1>
-          <p className="text-gray-400">{t.dashboard}</p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          <div className="relative">
-            <button
-              onClick={() => setShowNewAppMenu(!showNewAppMenu)}
-              disabled={creating}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30 transition-all disabled:opacity-50"
-            >
-              <Plus className="w-5 h-5" />
-              {t.newApplication}
-              <ChevronDown className={`w-4 h-4 transition-transform ${showNewAppMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showNewAppMenu && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-gradient-to-br from-slate-800/95 via-purple-900/95 to-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-purple-500/30 border border-white/20 overflow-hidden z-50">
-                <div className="p-2">
-                  {['express', 'smart', 'concierge'].map((pkg) => (
-                    <button
-                      key={pkg}
-                      onClick={() => handleCreateApplication(pkg)}
-                      disabled={creating}
-                      className="w-full px-4 py-3 text-left text-white hover:bg-white/10 rounded-xl transition-all flex items-center justify-between group"
-                    >
-                      <span>{t.packages[pkg]}</span>
-                      {pkg === 'smart' && (
-                        <span className="text-xs bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 px-2 py-1 rounded-full font-bold">
-                          🔥
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Applications */}
+    <div className="animate-fade-up">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">{t.myApplications}</h2>
-
-          {applications.length === 0 ? (
-            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-12 border border-white/20 text-center">
-              <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">{t.noApplications}</h3>
-              <p className="text-gray-400 mb-6">{t.startFirst}</p>
-              <button
-                onClick={() => setShowNewAppMenu(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                {t.createNew}
-              </button>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {applications.map((app) => {
-                const status = app.status || 'created';
-                const StatusIcon = statusIcons[status] || Clock;
-                const statusColor = statusColors[status] || statusColors.created;
-                
-                return (
-                  <Link
-                    key={app.id}
-                    to={`/application/${app.id}`}
-                    className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/20 transition-all duration-300"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${statusColor}`}>
-                        <StatusIcon className="w-4 h-4" />
-                        {t.status[status] || status}
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {formatDate(app.createdAt || app.created_at)}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-300 transition-colors">
-                      {getPackageName(app.packageType || app.package_type)} Package
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 text-gray-400 text-sm">
-                      <FileText className="w-4 h-4" />
-                      <span>Application #{app.id?.slice(0, 8)}</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+          <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: firstName })}</h1>
+          <p className="mt-1.5 text-ink-600">{t('dashboard.subtitle')}</p>
         </div>
+        {applications.length > 0 && (
+          <Button onClick={() => setPickerOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('dashboard.newApplication')}
+          </Button>
+        )}
       </div>
+
+      <div className="mt-8">
+        {loading ? (
+          <PageSpinner />
+        ) : error ? (
+          <Alert tone="error" action={<Button size="sm" variant="secondary" onClick={load}>{t('common.retry')}</Button>}>
+            {t('dashboard.loadError')} {error}
+          </Alert>
+        ) : applications.length === 0 ? (
+          <Card className="flex flex-col items-center px-6 py-16 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+              <FolderOpen className="h-7 w-7" aria-hidden="true" />
+            </span>
+            <h2 className="mt-5 text-xl font-bold">{t('dashboard.emptyTitle')}</h2>
+            <p className="mt-2 max-w-sm text-ink-600">{t('dashboard.emptyText')}</p>
+            <Button className="mt-7" onClick={() => setPickerOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('dashboard.createFirst')}
+            </Button>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {applications.map((app) => (
+              <ApplicationRow key={app.id} app={app} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {pickerOpen && (
+        <PlanPicker
+          open
+          initialPlan={planParam}
+          onClose={closePicker}
+          onCreated={(app) => navigate(`/application/${app.id}`)}
+        />
+      )}
     </div>
   );
 }
