@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "node e2e/build.mjs && playwright test",
-    "check:csp": "node scripts/check-csp.mjs"
+    "check:csp": "node scripts/check-csp.mjs",
+    "audit:report": "node scripts/audit-report.mjs audit/known-advisories.json"
   },
   "dependencies": {
     "axios": "^1.13.2",
