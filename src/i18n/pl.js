@@ -21,6 +21,7 @@ const pl = {
     learnMore: 'Dowiedz się więcej',
     genericError: 'Coś poszło nie tak. Spróbuj ponownie.',
     networkError: 'Nie udało się połączyć z serwerem. Sprawdź połączenie z internetem i spróbuj ponownie.',
+    apiNotConfigured: 'Ta wersja strony nie jest połączona z serwerem.',
   },
   nav: {
     howItWorks: 'Jak to działa',

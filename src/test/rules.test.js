@@ -6,6 +6,7 @@ import pl from '../i18n/pl';
 import uk from '../i18n/uk';
 import tr from '../i18n/tr';
 import ru from '../i18n/ru';
+import { cspProblems, parseCsp } from '../../scripts/check-csp.mjs';
 
 const srcDir = new URL('../', import.meta.url);
 const sources = readdirSync(srcDir, { recursive: true })
@@ -30,17 +31,19 @@ describe('source rules (F5)', () => {
 describe('vercel.json (F7)', () => {
   const config = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
   const all = config.headers.find((h) => h.source === '/(.*)').headers;
-  const csp = all.find((h) => h.key === 'Content-Security-Policy')?.value || '';
-  const directive = (name) => csp.split(';').map((d) => d.trim()).find((d) => d.startsWith(`${name} `)) || '';
 
-  it('sends a Content-Security-Policy on every page', () => {
-    expect(directive('default-src')).toBe("default-src 'self'");
-    expect(directive('script-src')).toBe("script-src 'self'");
-    expect(directive('object-src')).toBe("object-src 'none'");
-    expect(directive('frame-src')).toBe("frame-src 'none'");
-    expect(directive('frame-ancestors')).toBe("frame-ancestors 'none'");
-    expect(directive('base-uri')).toBe("base-uri 'self'");
-    expect(directive('img-src')).toContain('blob:');
+  it('sends a Content-Security-Policy that matches the API environments', () => {
+    expect(cspProblems(config)).toEqual([]);
+    const csp = parseCsp(all.find((h) => h.key === 'Content-Security-Policy').value);
+    expect(csp['img-src']).toContain('blob:');
+    expect(csp['connect-src']).not.toContain('https://vizaexpress-backend-production.up.railway.app');
+  });
+
+  it('flags a policy that drifts from the API environments', () => {
+    const drifted = JSON.parse(JSON.stringify(config).replace("connect-src 'self'", "connect-src 'self' https://other.example.com"));
+    expect(cspProblems(drifted).join()).toMatch(/connect-src should be/);
+    const scripted = JSON.parse(JSON.stringify(config).replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"));
+    expect(cspProblems(scripted).length).toBeGreaterThan(0);
   });
 
   it('keeps the other security headers', () => {

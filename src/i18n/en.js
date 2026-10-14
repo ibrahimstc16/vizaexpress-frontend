@@ -22,6 +22,7 @@ const en = {
     learnMore: 'Learn more',
     genericError: 'Something went wrong. Please try again.',
     networkError: 'We could not reach the server. Check your connection and try again.',
+    apiNotConfigured: 'This version of the site is not connected to a server.',
   },
   nav: {
     howItWorks: 'How it works',

@@ -21,6 +21,7 @@ const tr = {
     learnMore: 'Daha fazla bilgi',
     genericError: 'Bir sorun oluştu. Lütfen tekrar deneyin.',
     networkError: 'Sunucuya ulaşamadık. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+    apiNotConfigured: 'Sitenin bu sürümü bir sunucuya bağlı değil.',
   },
   nav: {
     howItWorks: 'Nasıl çalışır',

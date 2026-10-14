@@ -84,7 +84,7 @@ export function uploadErrorMessage(error, t) {
   const key = UPLOAD_ERRORS[error?.response?.data?.code];
   if (key) return t(key);
   if (error?.response?.status === 413) return t('application.fileTooLarge');
-  return error?.response ? errorMessage(error, t) : t('application.uploadError');
+  return error?.response || error?.code === 'API_NOT_CONFIGURED' ? errorMessage(error, t) : t('application.uploadError');
 }
 
 export function fileErrorMessage(error, t) {

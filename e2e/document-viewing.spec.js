@@ -47,22 +47,17 @@ async function setup(page, { admin = false } = {}) {
     });
   }, user);
 
-  // Anything that is not the local build or the mocked API is refused.
+  // This build's API is /api on the test server itself (see e2e/build.mjs);
+  // every request to it is answered here. Any other host is refused.
   await page.route((url) => url.hostname !== '127.0.0.1', (route) => route.abort());
   await page.route(
-    (url) => url.hostname !== '127.0.0.1' && url.pathname.startsWith('/api/'),
+    (url) => url.host === '127.0.0.1:4317' && url.pathname.startsWith('/api/'),
     (route) => {
       const request = route.request();
       const path = new URL(request.url()).pathname.replace(/^\/api/, '');
       calls.push(`${request.method()} ${path}`);
-      const cors = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-      };
-      const json = (body, status = 200) => route.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) });
+      const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-      if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
       if (path === '/auth/me') return json({ user });
       if (path === '/applications') return json({ applications: [application] });
       if (path === `/applications/${APP_ID}`) return json({ application, documents });
@@ -74,7 +69,7 @@ async function setup(page, { admin = false } = {}) {
         const { contentType, body } = FILES[file[1]];
         return route.fulfill({
           status: 200,
-          headers: { ...cors, 'Content-Disposition': 'attachment', 'X-Content-Type-Options': 'nosniff' },
+          headers: { 'Content-Disposition': 'attachment', 'X-Content-Type-Options': 'nosniff' },
           contentType,
           body,
         });
@@ -184,6 +179,9 @@ test('pages work under the Content-Security-Policy', async ({ page }) => {
   expect(csp).toContain("script-src 'self'");
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("connect-src 'self';");
+  // The build narrows connect-src to its own API.
+  expect(await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).toBe("connect-src 'self' http://127.0.0.1:4317");
 
   for (const path of ['/', '/pricing', '/login', '/dashboard', `/application/${APP_ID}`]) {
     await page.goto(path);

@@ -1,11 +1,12 @@
-// Serves the production build with the headers and rewrite from vercel.json,
-// so browser tests run under the same rules as the deployed site.
+// Serves a build with the headers and rewrite from vercel.json, so browser
+// tests run under the same rules as the deployed site.
+// Usage: node e2e/serve.mjs <port> <build directory>
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../dist/', import.meta.url));
+const root = fileURLToPath(new URL(`../${process.argv[3] || 'dist'}/`, import.meta.url));
 const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
 const port = Number(process.argv[2] || 4317);
 
