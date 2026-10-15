@@ -8,7 +8,12 @@ const origins = {
   staging: ['https://staging-api.example.com'],
   preview: ['https://staging-api.example.com'],
 };
-const resolve = (env, options = {}) => resolveApiConfig(env, { origins, ...options });
+// vercel.json's policy as it would be with those lists.
+const siteWith = (sources) => ({
+  headers: [{ source: '/(.*)', headers: [{ key: 'Content-Security-Policy', value: `default-src 'self'; connect-src ${sources}` }] }],
+});
+const siteConfig = siteWith("'self' https://api.example.com https://staging-api.example.com");
+const resolve = (env, options = {}) => resolveApiConfig(env, { origins, siteConfig, ...options });
 const refuses = (env, pattern, options) => expect(() => resolve(env, options)).toThrow(pattern);
 
 describe('production builds', () => {
@@ -91,5 +96,29 @@ describe('environment lists', () => {
     expect(() => checkEnvironments({ ...origins, staging: ['http://staging-api.example.com'] })).toThrow(/https/);
     expect(() => checkEnvironments({ ...origins, staging: ['https://staging-api.example.com/api'] })).toThrow(/bare origin/);
     expect(() => checkEnvironments({ ...origins, production: ['https://vizaexpress-backend-production.up.railway.app'] })).toThrow(/retired/);
+  });
+});
+
+describe('vercel.json and the build agree (deploy/csp.js)', () => {
+  it('a deployed build cannot be checked without vercel.json', () => {
+    refuses({ VITE_APP_ENV: 'production', VITE_API_URL: 'https://api.example.com/api' }, /needs vercel.json/, { siteConfig: undefined });
+    refuses({ VERCEL_ENV: 'preview' }, /needs vercel.json/, { siteConfig: undefined });
+  });
+
+  it('a deployed build fails when vercel.json does not allow its API', () => {
+    refuses(
+      { VITE_APP_ENV: 'production', VITE_API_URL: 'https://api.example.com/api' },
+      /vercel.json connect-src does not allow https:\/\/api.example.com/,
+      { siteConfig: siteWith("'self' https://staging-api.example.com") }
+    );
+    refuses({ VITE_APP_ENV: 'staging', VITE_API_URL: 'https://staging-api.example.com/api' }, /does not allow/, { siteConfig: siteWith("'self'") });
+  });
+
+  it('a build without an API only needs \'self\'', () => {
+    expect(resolve({ VERCEL_ENV: 'preview' }, { siteConfig: siteWith("'self'") }).apiOrigin).toBeNull();
+  });
+
+  it('local builds are not served with vercel.json and are not checked against it', () => {
+    expect(resolve({ VITE_APP_ENV: 'test', VITE_API_URL: 'http://127.0.0.1:4319/api' }, { siteConfig: undefined }).apiOrigin).toBe('http://127.0.0.1:4319');
   });
 });

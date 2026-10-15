@@ -43,7 +43,7 @@ test('a signed-in page sends no API request', async ({ page }) => {
 });
 
 test('no bundle contains the retired API host', () => {
-  for (const dir of ['dist', 'dist-preview']) {
+  for (const dir of ['dist', 'dist-cross-origin', 'dist-preview']) {
     const assets = new URL(`../${dir}/assets/`, import.meta.url);
     for (const name of readdirSync(assets)) {
       expect(readFileSync(new URL(name, assets), 'utf8'), `${dir}/assets/${name}`).not.toContain('up.railway.app');
