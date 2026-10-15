@@ -1,16 +1,18 @@
-# Checks for every pull request: lint, unit tests, CSP, builds, browser tests
-# and a dependency audit.
+# Checks for every pull request and every push to an integration/** branch:
+# lint, unit tests, CSP, builds, browser tests and a dependency audit. Nothing
+# runs for main.
 #
 # Safety: read-only token, no secrets, no environments, no deployment and no
 # merge steps. `pull_request` (never `pull_request_target`) means pull requests
-# from forks get no secrets and no write access. The browser tests mock the API
-# and cannot reach any other host.
+# from forks get no secrets and no write access. The browser tests use
+# synthetic APIs on this machine and cannot reach any other host.
+# scripts/check-workflows.mjs enforces these rules on every run.
 name: CI
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: ['integration/**']
 
 permissions:
   contents: read
@@ -35,6 +37,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+      - name: Workflow rules
+        run: node scripts/check-workflows.mjs
       - run: npm ci
       - name: ESLint
         run: npm run lint
