@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, CircleAlert, Clock3 } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { paymentsApi } from '../services/api';
+import { knownErrorMessage, paymentsApi } from '../services/api';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Spinner from '../components/ui/Spinner';
@@ -13,6 +13,7 @@ export default function PaymentSuccess() {
   const sessionId = params.get('session_id');
   const applicationId = params.get('application_id');
   const [state, setState] = useState(sessionId ? 'verifying' : 'error');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!sessionId) return undefined;
@@ -20,7 +21,11 @@ export default function PaymentSuccess() {
     paymentsApi
       .verify(sessionId)
       .then(({ data }) => active && setState(data.paid ? 'success' : 'pending'))
-      .catch(() => active && setState('error'));
+      .catch((err) => {
+        if (!active) return;
+        setError(err);
+        setState('error');
+      });
     return () => {
       active = false;
     };
@@ -29,7 +34,7 @@ export default function PaymentSuccess() {
   const views = {
     success: { Icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600', title: t('paymentSuccess.successTitle'), text: t('paymentSuccess.successText') },
     pending: { Icon: Clock3, color: 'bg-amber-50 text-amber-600', title: t('paymentSuccess.pendingTitle'), text: t('paymentSuccess.pendingText') },
-    error: { Icon: CircleAlert, color: 'bg-red-50 text-red-600', title: t('paymentSuccess.errorTitle'), text: t('paymentSuccess.errorText') },
+    error: { Icon: CircleAlert, color: 'bg-red-50 text-red-600', title: t('paymentSuccess.errorTitle'), text: knownErrorMessage(error, t) || t('paymentSuccess.errorText') },
   };
   const view = views[state];
 

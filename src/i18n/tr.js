@@ -23,6 +23,18 @@ const tr = {
     networkError: 'Sunucuya ulaşamadık. İnternet bağlantınızı kontrol edip tekrar deneyin.',
     apiNotConfigured: 'Sitenin bu sürümü bir sunucuya bağlı değil.',
   },
+  apiErrors: {
+    timeout: 'Sunucu zamanında yanıt vermedi. Lütfen tekrar deneyin.',
+    rateLimited: 'Çok fazla deneme yapıldı. Lütfen {minutes} dk bekleyip tekrar deneyin.',
+    rateLimitedNoTime: 'Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar deneyin.',
+    busy: 'Hizmet şu anda yoğun. Lütfen bir dakika sonra tekrar deneyin.',
+    maintenance: 'VizaExpress şu anda bakımda. Lütfen daha sonra tekrar deneyin. Acil sorularınız için {email} adresine yazın.',
+    registrationDisabled: 'Şu anda yeni hesap oluşturulamıyor. Lütfen daha sonra tekrar deneyin.',
+    paymentsDisabled: 'Ödemeler şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+    sessionExpired: 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
+    forbidden: 'Buna erişim izniniz yok.',
+    unavailable: 'Hizmet geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+  },
   nav: {
     howItWorks: 'Nasıl çalışır',
     pricing: 'Fiyatlar',
@@ -253,7 +265,6 @@ const tr = {
       email: 'Lütfen geçerli bir e-posta adresi girin.',
       password: 'Şifreniz en az 8 karakterden oluşmalıdır.',
       fullName: 'Lütfen adınızı ve soyadınızı girin.',
-      tooMany: 'Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar deneyin.',
     },
     side: {
       title: 'Belgeleriniz, ofis görmeden önce kontrol edilir',

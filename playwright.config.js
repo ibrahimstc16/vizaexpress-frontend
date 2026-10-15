@@ -15,7 +15,7 @@ export default defineConfig({
     launchOptions: { args: ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] },
   },
   projects: [
-    { name: 'app', testMatch: /document-viewing\.spec\.js/, use: { baseURL: 'http://127.0.0.1:4317' } },
+    { name: 'app', testMatch: /(document-viewing|api-errors)\.spec\.js/, use: { baseURL: 'http://127.0.0.1:4317' } },
     { name: 'cross-origin', testMatch: /cross-origin\.spec\.js/, use: { baseURL: 'http://127.0.0.1:4321' } },
     { name: 'preview-build', testMatch: /preview-build\.spec\.js/, use: { baseURL: 'http://127.0.0.1:4318' } },
   ],

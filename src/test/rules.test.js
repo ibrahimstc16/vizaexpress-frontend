@@ -60,7 +60,24 @@ describe('translations', () => {
   const keys = (node, prefix = '') =>
     Object.entries(node).flatMap(([k, v]) => (v && typeof v === 'object' ? keys(v, `${prefix}${k}.`) : [`${prefix}${k}`]));
 
-  it.each([['pl', pl], ['uk', uk], ['tr', tr], ['ru', ru]])('%s has every application string', (_code, dict) => {
-    expect(keys(dict.application).sort()).toEqual(keys(en.application).sort());
+  const value = (dict, key) => key.split('.').reduce((node, part) => node[part], dict);
+  const placeholders = (text) => (typeof text === 'string' ? (text.match(/\{\w+\}/g) || []).sort() : []);
+  const others = [['pl', pl], ['uk', uk], ['tr', tr], ['ru', ru]];
+
+  it.each(others)('%s has every string', (_code, dict) => {
+    expect(keys(dict).sort()).toEqual(keys(en).sort());
+  });
+
+  it.each(others)('%s keeps every placeholder', (_code, dict) => {
+    const differ = keys(en).filter((key) => placeholders(value(dict, key)).join() !== placeholders(value(en, key)).join());
+    expect(differ).toEqual([]);
+  });
+
+  it.each([['en', en], ...others])('%s explains every answer code of the API', (_code, dict) => {
+    for (const key of ['timeout', 'rateLimited', 'rateLimitedNoTime', 'busy', 'maintenance', 'registrationDisabled', 'paymentsDisabled', 'sessionExpired', 'forbidden', 'unavailable']) {
+      expect(dict.apiErrors[key], key).toMatch(/\S/);
+    }
+    expect(dict.apiErrors.rateLimited).toContain('{minutes}');
+    expect(dict.apiErrors.maintenance).toContain('{email}');
   });
 });

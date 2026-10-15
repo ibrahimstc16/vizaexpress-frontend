@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { SITE } from '../config/site';
 
 // Set at build time from VITE_API_URL after vite.config.js has checked it
 // against deploy/apiEnvironments.js. null means this build has no API, and
@@ -41,43 +42,121 @@ export const session = {
   },
 };
 
-const api = axios.create({ baseURL: API_URL ?? undefined, timeout: 30000 });
-
-api.interceptors.request.use((config) => {
-  if (!API_URL) {
-    const error = new Error('This build is not connected to an API');
-    error.code = 'API_NOT_CONFIGURED';
-    throw error;
-  }
-  const token = session.getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
 let onUnauthorized = null;
 export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
 }
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    const isAuthCall = error.config?.url?.startsWith('/auth/login') || error.config?.url?.startsWith('/auth/register');
-    if (status === 401 && !isAuthCall && session.getToken()) {
-      session.clear();
-      onUnauthorized?.();
-    }
-    return Promise.reject(error);
-  }
-);
+// Automatic retries, only for reads: a GET can be sent again without side
+// effects. Writes (sign-in, registration, upload, payment) are never repeated;
+// the person decides. A read is retried after a network failure or a
+// temporary server error, never after a timeout (it already waited), a
+// refusal (4xx, including 429), maintenance or a switched-off feature.
+export const RETRY_DELAYS_MS = [1000, 2000];
+const MAX_RETRY_AFTER_S = 5;
+const TRANSIENT_STATUS = new Set([502, 503, 504]);
+const TRANSIENT_CODES = new Set([undefined, 'RATE_LIMIT_UNAVAILABLE']);
 
-// Turns an axios error into a message key or server message for the UI.
-export function errorMessage(error, t) {
+export function isTimeout(error) {
+  return error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
+}
+
+// Seconds from a Retry-After header, or null. The API must list Retry-After
+// in Access-Control-Expose-Headers for a page on another origin to read it.
+export function retryAfterSeconds(error) {
+  const value = Number(error?.response?.headers?.['retry-after']);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+export function retryDelay(error, attempt) {
+  const config = error?.config;
+  if (!config || (config.method || 'get').toLowerCase() !== 'get') return null;
+  if (config.retry === false || attempt >= RETRY_DELAYS_MS.length) return null;
+  if (error.code === 'API_NOT_CONFIGURED' || axios.isCancel(error) || isTimeout(error)) return null;
+  if (!error.response) return RETRY_DELAYS_MS[attempt];
+  if (!TRANSIENT_STATUS.has(error.response.status) || !TRANSIENT_CODES.has(error.response.data?.code)) return null;
+  const wait = retryAfterSeconds(error);
+  if (wait === null) return RETRY_DELAYS_MS[attempt];
+  return wait <= MAX_RETRY_AFTER_S ? wait * 1000 : null;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// The client for one API address; null refuses every request before it is
+// sent. Exported for the unit tests, which use a synthetic address.
+export function createApi(apiUrl) {
+  const client = axios.create({ baseURL: apiUrl ?? undefined, timeout: 30000 });
+
+  client.interceptors.request.use((config) => {
+    if (!apiUrl) {
+      const error = new Error('This build is not connected to an API');
+      error.code = 'API_NOT_CONFIGURED';
+      throw error;
+    }
+    const token = session.getToken();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
+
+  client.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const status = error.response?.status;
+      const isAuthCall = error.config?.url?.startsWith('/auth/login') || error.config?.url?.startsWith('/auth/register');
+      if (status === 401 && !isAuthCall && session.getToken()) {
+        session.clear();
+        onUnauthorized?.();
+      }
+      const attempt = error.config?.retryAttempt || 0;
+      const delay = retryDelay(error, attempt);
+      if (delay === null) throw error;
+      await sleep(delay);
+      return client.request({ ...error.config, retryAttempt: attempt + 1 });
+    }
+  );
+  return client;
+}
+
+const api = createApi(API_URL);
+
+// Answers the API gives with a code of its own: maintenance, a switched-off
+// feature, or too many requests.
+const CODE_MESSAGES = {
+  MAINTENANCE: 'apiErrors.maintenance',
+  REGISTRATION_DISABLED: 'apiErrors.registrationDisabled',
+  PAYMENTS_DISABLED: 'apiErrors.paymentsDisabled',
+  RATE_LIMIT_UNAVAILABLE: 'apiErrors.busy',
+};
+
+// The message for an answer the API explains with a code, a timeout or a
+// 429, or null when the caller should decide (for example a 401 at sign-in).
+export function knownErrorMessage(error, t) {
   if (error?.code === 'API_NOT_CONFIGURED') return t('common.apiNotConfigured');
+  if (isTimeout(error)) return t('apiErrors.timeout');
+  const response = error?.response;
+  if (!response) return null;
+  const code = response.data?.code;
+  if (code === 'MAINTENANCE') return t(CODE_MESSAGES.MAINTENANCE, { email: SITE.supportEmail });
+  if (CODE_MESSAGES[code]) return t(CODE_MESSAGES[code]);
+  if (response.status === 429 || code === 'RATE_LIMITED') {
+    const wait = retryAfterSeconds(error);
+    return wait
+      ? t('apiErrors.rateLimited', { minutes: Math.max(1, Math.ceil(wait / 60)) })
+      : t('apiErrors.rateLimitedNoTime');
+  }
+  return null;
+}
+
+// Turns an axios error into a message for the UI.
+export function errorMessage(error, t) {
+  const known = knownErrorMessage(error, t);
+  if (known) return known;
   if (!error?.response) return t('common.networkError');
-  if (error.response.status === 429) return t('auth.errors.tooMany');
-  if (error.response.status >= 500) return t('common.genericError');
+  const { status } = error.response;
+  if (status === 401) return t('apiErrors.sessionExpired');
+  if (status === 403) return t('apiErrors.forbidden');
+  if (status === 503) return t('apiErrors.unavailable');
+  if (status >= 500) return t('common.genericError');
   return error.response.data?.error || t('common.genericError');
 }
 
