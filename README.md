@@ -36,6 +36,16 @@ npm run check:csp # vercel.json CSP matches deploy/apiEnvironments.js
 
 The browser tests mock the API and block every other host, so they need no backend. Run `npx playwright install chromium` once if Playwright has no browser yet.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request with a read-only token, no secrets and no deployment steps:
+
+- ESLint, Vitest, `npm run check:csp`, a check that a production build without `VITE_API_URL` is refused, and a preview build.
+- Playwright (Chromium) against the two test bundles.
+- `npm audit` compared with `audit/known-advisories.json` (`npm run audit:report`). Every known advisory is listed on each run; a new advisory of moderate or higher severity in a production dependency fails the job. Update the list only in a reviewed change.
+
+Each job writes a short report to the run summary and uploads its test reports.
+
 ## Structure
 
 - `src/i18n/` — all UI text. `en.js` is the source; `pl.js`, `uk.js`, `tr.js`, `ru.js` must keep the same keys.

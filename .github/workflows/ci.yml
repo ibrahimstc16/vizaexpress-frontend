@@ -1,0 +1,112 @@
+# Checks for every pull request and every push to an integration/** branch:
+# lint, unit tests, CSP, builds, browser tests and a dependency audit. Nothing
+# runs for main.
+#
+# Safety: read-only token, no secrets, no environments, no deployment and no
+# merge steps. `pull_request` (never `pull_request_target`) means pull requests
+# from forks get no secrets and no write access. The browser tests use
+# synthetic APIs on this machine and cannot reach any other host.
+# scripts/check-workflows.mjs enforces these rules on every run.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ['integration/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  checks:
+    name: Lint, unit tests, CSP and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Workflow rules
+        run: node scripts/check-workflows.mjs
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Unit and component tests (Vitest)
+        run: npx vitest run --reporter=default --reporter=junit --outputFile.junit=reports/vitest-junit.xml
+      - name: CSP validation
+        run: npm run check:csp
+      - name: Production build without an API address is refused
+        run: |
+          if VITE_APP_ENV=production VITE_API_URL= npx vite build --outDir "$RUNNER_TEMP/refused" > "$RUNNER_TEMP/refused.log" 2>&1; then
+            echo "::error::A production build without VITE_API_URL succeeded; it must fail"
+            exit 1
+          fi
+          grep -q "VITE_API_URL is required for production builds" "$RUNNER_TEMP/refused.log"
+      - name: Vite build (preview, no API)
+        run: npm run build
+        env:
+          VITE_APP_ENV: preview
+          VITE_API_URL: ''
+      - name: Test report
+        if: always()
+        run: node scripts/ci-summary.mjs "Unit tests" reports/vitest-junit.xml >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: unit-test-report
+          path: reports/
+          retention-days: 14
+
+  browser:
+    name: Browser tests (Playwright, Chromium)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build test bundles and run Playwright
+        run: npm run test:e2e
+      - name: Test report
+        if: always()
+        run: node scripts/ci-summary.mjs "Browser tests" reports/e2e-junit.xml >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: browser-test-report
+          path: |
+            reports/
+            test-results/
+          retention-days: 14
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm audit against the known advisory list
+        run: node scripts/audit-report.mjs audit/known-advisories.json
