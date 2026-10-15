@@ -5,6 +5,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { API_ORIGINS, checkEnvironments, deployedApiOrigins } from '../deploy/apiEnvironments.js';
+import { parseCsp, siteCsp } from '../deploy/csp.js';
+
+export { parseCsp };
 
 const REQUIRED = {
   'default-src': ["'self'"],
@@ -16,15 +19,6 @@ const REQUIRED = {
   'frame-ancestors': ["'none'"],
 };
 
-export function parseCsp(value) {
-  return Object.fromEntries(
-    value.split(';').map((part) => part.trim()).filter(Boolean).map((part) => {
-      const [name, ...sources] = part.split(/\s+/);
-      return [name.toLowerCase(), sources];
-    })
-  );
-}
-
 const sameSet = (a, b) => a.length === b.length && a.every((item) => b.includes(item));
 
 export function cspProblems(vercelConfig, origins = API_ORIGINS) {
@@ -34,8 +28,7 @@ export function cspProblems(vercelConfig, origins = API_ORIGINS) {
   } catch (error) {
     problems.push(error.message);
   }
-  const site = (vercelConfig.headers || []).find((h) => h.source === '/(.*)');
-  const value = site?.headers.find((h) => h.key === 'Content-Security-Policy')?.value;
+  const value = siteCsp(vercelConfig);
   if (!value) return [...problems, 'vercel.json has no Content-Security-Policy on "/(.*)"'];
 
   const csp = parseCsp(value);

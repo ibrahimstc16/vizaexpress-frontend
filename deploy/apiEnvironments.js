@@ -2,8 +2,11 @@
 // VITE_API_URL at build time and has no default: vite.config.js checks it
 // here and stops the build when it is missing or not allowed.
 //
+import { cspDisagreement } from './csp.js';
+
 // vercel.json's connect-src must list exactly 'self' plus every origin in
-// API_ORIGINS (npm run check:csp and the unit tests compare them).
+// API_ORIGINS (npm run check:csp and the unit tests compare them), because the
+// browser also applies that policy and a build cannot widen it (deploy/csp.js).
 
 // Deployed environments. Production origins must never appear in the staging
 // or preview lists; previews use the staging API.
@@ -13,10 +16,11 @@ export const API_ORIGINS = {
   preview: [],
 };
 
-// Local builds only; never deployed.
+// Local builds only; never deployed. The browser tests use an API on the
+// test server's own origin (4317) and one on a separate origin (4319).
 export const LOCAL_API_ORIGINS = {
   development: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  test: ['http://127.0.0.1:4317'],
+  test: ['http://127.0.0.1:4317', 'http://127.0.0.1:4319'],
 };
 
 // Retired API hosts that no build may use.
@@ -64,7 +68,19 @@ export function appEnvironment(env, command = 'build') {
 
 // Returns { appEnv, apiUrl, apiOrigin }; apiUrl is null for a build without
 // an API. Throws ApiConfigError when the configuration is missing or unsafe.
-export function resolveApiConfig(env, { command = 'build', origins = API_ORIGINS, local = LOCAL_API_ORIGINS } = {}) {
+// siteConfig is vercel.json; deployed builds need it to check that its
+// Content-Security-Policy allows their API.
+export function resolveApiConfig(env, { command = 'build', origins = API_ORIGINS, local = LOCAL_API_ORIGINS, siteConfig } = {}) {
+  const config = resolveApi(env, { command, origins, local });
+  if (Object.hasOwn(origins, config.appEnv)) {
+    if (!siteConfig) throw new ApiConfigError(`A ${config.appEnv} build needs vercel.json to check its Content-Security-Policy.`);
+    const problem = cspDisagreement(siteConfig, config.apiOrigin);
+    if (problem) throw new ApiConfigError(problem);
+  }
+  return config;
+}
+
+function resolveApi(env, { command, origins, local }) {
   checkEnvironments(origins, local);
 
   const appEnv = appEnvironment(env, command);
