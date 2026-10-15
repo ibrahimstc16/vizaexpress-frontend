@@ -44,6 +44,10 @@ describe('vercel.json (F7)', () => {
     expect(cspProblems(drifted).join()).toMatch(/connect-src should be/);
     const scripted = JSON.parse(JSON.stringify(config).replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"));
     expect(cspProblems(scripted).length).toBeGreaterThan(0);
+    const styled = JSON.parse(JSON.stringify(config).replace("style-src 'self'", "style-src 'self' 'unsafe-inline'"));
+    expect(cspProblems(styled).join()).toMatch(/style-src must not allow inline/);
+    const untyped = JSON.parse(JSON.stringify(config).replace("; require-trusted-types-for 'script'", ''));
+    expect(cspProblems(untyped).join()).toMatch(/require-trusted-types-for/);
   });
 
   it('keeps the other security headers', () => {
