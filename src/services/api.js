@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-export const API_URL = (import.meta.env.VITE_API_URL || 'https://vizaexpress-backend-production.up.railway.app/api').replace(/\/$/, '');
+// Set at build time from VITE_API_URL after vite.config.js has checked it
+// against deploy/apiEnvironments.js. null means this build has no API, and
+// every request is refused before it leaves the browser.
+export const API_URL = __API_URL__;
 
 const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
@@ -38,9 +41,14 @@ export const session = {
   },
 };
 
-const api = axios.create({ baseURL: API_URL, timeout: 30000 });
+const api = axios.create({ baseURL: API_URL ?? undefined, timeout: 30000 });
 
 api.interceptors.request.use((config) => {
+  if (!API_URL) {
+    const error = new Error('This build is not connected to an API');
+    error.code = 'API_NOT_CONFIGURED';
+    throw error;
+  }
   const token = session.getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -66,6 +74,7 @@ api.interceptors.response.use(
 
 // Turns an axios error into a message key or server message for the UI.
 export function errorMessage(error, t) {
+  if (error?.code === 'API_NOT_CONFIGURED') return t('common.apiNotConfigured');
   if (!error?.response) return t('common.networkError');
   if (error.response.status === 429) return t('auth.errors.tooMany');
   if (error.response.status >= 500) return t('common.genericError');
@@ -96,7 +105,10 @@ export const documentsApi = {
       onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded / e.total) * 100)),
     });
   },
-  file: (id) => api.get(`/documents/${id}/file`, { responseType: 'blob' }),
+  file: async (id) => {
+    const res = await api.get(`/documents/${id}/file`, { responseType: 'blob' });
+    return { blob: res.data, contentType: res.headers['content-type'] };
+  },
 };
 
 export const paymentsApi = {

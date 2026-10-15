@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, CheckCircle2, CircleAlert, CloudUpload, CreditCard, ExternalLink, Lightbulb, Lock, RefreshCw, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, CircleAlert, CloudUpload, CreditCard, Eye, Lightbulb, Lock, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { applicationsApi, documentsApi, errorMessage, paymentsApi } from '../services/api';
+import { UPLOAD_ACCEPT, checkUploadFile, uploadErrorMessage } from '../lib/documentFile';
 import { DOCUMENT_TYPES, PLAN_PRICES } from '../config/site';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -10,10 +11,9 @@ import Alert from '../components/ui/Alert';
 import Badge, { StatusBadge } from '../components/ui/Badge';
 import Spinner, { PageSpinner } from '../components/ui/Spinner';
 import DocIcon from '../components/marketing/DocIcon';
+import DocumentPreview from '../components/DocumentPreview';
 import { cx } from '../components/ui/cx';
 
-const MAX_SIZE = 10 * 1024 * 1024;
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const POLL_MS = 3000;
 const MAX_POLLS = 60;
 const PAID_STATUSES = ['paid', 'pending', 'reviewing', 'approved', 'rejected'];
@@ -87,7 +87,7 @@ function DocumentCard({ spec, doc, uploading, progress, error, onUpload, onView 
         ref={inputRef}
         type="file"
         className="sr-only"
-        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        accept={UPLOAD_ACCEPT}
         onChange={(e) => {
           onFiles(e.target.files);
           e.target.value = '';
@@ -182,7 +182,7 @@ function DocumentCard({ spec, doc, uploading, progress, error, onUpload, onView 
             <p className="min-w-0 truncate text-xs text-ink-500" title={doc.original_filename}>{doc.original_filename}</p>
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => onView(doc)}>
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                 {t('application.view')}
               </Button>
               <Button size="sm" variant="secondary" onClick={pick}>
@@ -237,6 +237,7 @@ export default function ApplicationDetail() {
   const [docErrors, setDocErrors] = useState({});
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState('');
+  const [viewing, setViewing] = useState(null);
   const polls = useRef(0);
 
   const load = useCallback(async () => {
@@ -272,12 +273,9 @@ export default function ApplicationDetail() {
 
   const upload = async (type, file) => {
     setDocErrors((e) => ({ ...e, [type]: '' }));
-    if (!ACCEPTED.includes(file.type)) {
-      setDocErrors((e) => ({ ...e, [type]: t('application.wrongType') }));
-      return;
-    }
-    if (file.size > MAX_SIZE) {
-      setDocErrors((e) => ({ ...e, [type]: t('application.fileTooLarge') }));
+    const problem = await checkUploadFile(file);
+    if (problem) {
+      setDocErrors((e) => ({ ...e, [type]: t(problem) }));
       return;
     }
     setUploads((u) => ({ ...u, [type]: 1 }));
@@ -289,28 +287,13 @@ export default function ApplicationDetail() {
       setDocuments((docs) => [...docs.filter((d) => d.document_type !== type), data.document]);
       polls.current = 0;
     } catch (err) {
-      setDocErrors((e) => ({ ...e, [type]: err.response ? errorMessage(err, t) : t('application.uploadError') }));
+      setDocErrors((e) => ({ ...e, [type]: uploadErrorMessage(err, t) }));
     } finally {
       setUploads((u) => {
         const next = { ...u };
         delete next[type];
         return next;
       });
-    }
-  };
-
-  const view = async (doc) => {
-    // Open the tab synchronously so pop-up blockers allow it, then load the file into it.
-    const win = window.open('', '_blank');
-    try {
-      const res = await documentsApi.file(doc.id);
-      const url = URL.createObjectURL(res.data);
-      if (win) win.location.href = url;
-      else window.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
-      win?.close();
-      setDocErrors((e) => ({ ...e, [doc.document_type]: err.response?.status === 410 ? t('application.fileMissing') : errorMessage(err, t) }));
     }
   };
 
@@ -386,7 +369,7 @@ export default function ApplicationDetail() {
                 progress={uploads[spec.type]}
                 error={docErrors[spec.type]}
                 onUpload={upload}
-                onView={view}
+                onView={setViewing}
               />
             ))}
           </div>
@@ -456,6 +439,15 @@ export default function ApplicationDetail() {
           </Card>
         </aside>
       </div>
+
+      {viewing && (
+        <DocumentPreview
+          key={viewing.id}
+          doc={viewing}
+          title={t(`documents.${viewing.document_type}.name`)}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Mail, Phone } from 'lucide-react';
-import { adminApi, documentsApi, errorMessage } from '../services/api';
+import { ArrowLeft, Eye, Mail, Phone } from 'lucide-react';
+import { adminApi, errorMessage } from '../services/api';
 import { useI18n } from '../i18n';
 import { DOCUMENT_TYPES } from '../config/site';
 import Card from '../components/ui/Card';
@@ -10,6 +10,7 @@ import Button from '../components/ui/Button';
 import Badge, { StatusBadge } from '../components/ui/Badge';
 import { PageSpinner } from '../components/ui/Spinner';
 import DocIcon from '../components/marketing/DocIcon';
+import DocumentPreview from '../components/DocumentPreview';
 import { ADMIN_STATUS, PLAN_NAMES, formatDateTime } from './admin/shared';
 
 const DOC_NAMES = {
@@ -47,6 +48,7 @@ export default function AdminApplicationDetail() {
   const [nextStatus, setNextStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [viewing, setViewing] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -77,19 +79,6 @@ export default function AdminApplicationDetail() {
       setError(errorMessage(err, t));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const view = async (doc) => {
-    const win = window.open('', '_blank');
-    try {
-      const res = await documentsApi.file(doc.id);
-      const url = URL.createObjectURL(res.data);
-      if (win) win.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
-      win?.close();
-      setError(err.response?.status === 410 ? 'Bu dosya sunucuda artık yok (yeniden dağıtımda silinmiş olabilir).' : errorMessage(err, t));
     }
   };
 
@@ -176,8 +165,8 @@ export default function AdminApplicationDetail() {
                         )}
                       </div>
                       {doc && (
-                        <Button size="sm" variant="secondary" onClick={() => view(doc)}>
-                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        <Button size="sm" variant="secondary" onClick={() => setViewing(doc)}>
+                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                           Görüntüle
                         </Button>
                       )}
@@ -208,6 +197,15 @@ export default function AdminApplicationDetail() {
           </Card>
         </aside>
       </div>
+
+      {viewing && (
+        <DocumentPreview
+          key={viewing.id}
+          doc={viewing}
+          title={DOC_NAMES[viewing.document_type] || viewing.document_type}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }
