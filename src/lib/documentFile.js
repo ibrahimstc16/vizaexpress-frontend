@@ -1,4 +1,4 @@
-import { errorMessage } from '../services/api';
+import { errorMessage, isTimeout, knownErrorMessage } from '../services/api';
 
 // Helpers for uploaded documents. Photos are previewed in an <img>; every other
 // file is only offered as a download and is never opened inside the site.
@@ -84,12 +84,14 @@ export function uploadErrorMessage(error, t) {
   const key = UPLOAD_ERRORS[error?.response?.data?.code];
   if (key) return t(key);
   if (error?.response?.status === 413) return t('application.fileTooLarge');
-  return error?.response || error?.code === 'API_NOT_CONFIGURED' ? errorMessage(error, t) : t('application.uploadError');
+  return error?.response || error?.code === 'API_NOT_CONFIGURED' || isTimeout(error) ? errorMessage(error, t) : t('application.uploadError');
 }
 
 export function fileErrorMessage(error, t) {
   const status = error?.response?.status;
   if (status === 404 || status === 410) return t('application.fileMissing');
+  const known = knownErrorMessage(error, t);
+  if (known) return known;
   if (status === 503) return t('application.viewUnavailable');
   return errorMessage(error, t);
 }

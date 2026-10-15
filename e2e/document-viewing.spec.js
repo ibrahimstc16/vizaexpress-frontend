@@ -180,6 +180,8 @@ test('pages work under the Content-Security-Policy', async ({ page }) => {
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("connect-src 'self';");
+  expect(csp).toContain("require-trusted-types-for 'script'; trusted-types 'none'");
+  expect(csp).not.toContain('unsafe-inline');
   // The build narrows connect-src to its own API.
   expect(await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).toBe("connect-src 'self' http://127.0.0.1:4317");
 

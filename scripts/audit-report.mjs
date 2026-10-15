@@ -3,15 +3,17 @@
 // Runs `npm audit` and compares every advisory with audit/known-advisories.json.
 // Nothing is hidden: known advisories are listed on every run (as warnings),
 // new ones as errors, and known entries that no longer apply are flagged for
-// removal. The job fails when a new advisory of moderate or higher severity
-// affects a production dependency. Adding an entry to the known list is a
-// reviewed change, never automatic.
+// removal. The job fails when a production dependency has a new advisory of
+// moderate or higher severity, or any high or critical advisory, listed or
+// not. Adding an entry to the known list is a reviewed change, never
+// automatic, and it cannot let a high or critical one through.
 //
 // Usage: node scripts/audit-report.mjs [path/to/known-advisories.json]
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 
 const BLOCKING = new Set(['moderate', 'high', 'critical']);
+const ALWAYS_BLOCKING = new Set(['high', 'critical']);
 const knownPath = process.argv[2] || 'audit/known-advisories.json';
 
 function audit(args) {
@@ -45,7 +47,9 @@ const rows = [...all.entries()].map(([key, a]) => ({
   status: knownKeys.has(key) ? 'known' : 'new',
 }));
 const resolved = known.filter((k) => !all.has(`${k.id} ${k.package}`));
-const blocking = rows.filter((r) => r.status === 'new' && r.scope === 'production' && BLOCKING.has(r.severity));
+const blocking = rows.filter(
+  (r) => r.scope === 'production' && (ALWAYS_BLOCKING.has(r.severity) || (r.status === 'new' && BLOCKING.has(r.severity)))
+);
 
 const order = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };
 rows.sort((a, b) => (a.status === b.status ? 0 : a.status === 'new' ? -1 : 1) || order[a.severity] - order[b.severity] || a.package.localeCompare(b.package));
@@ -61,8 +65,8 @@ const lines = [
   `| Known entries no longer reported | ${resolved.length} | |`,
   '',
   blocking.length
-    ? `**Failed:** ${blocking.length} new advisor${blocking.length === 1 ? 'y' : 'ies'} of moderate or higher severity in production dependencies.`
-    : '**Passed:** no new advisory of moderate or higher severity in production dependencies. Known advisories stay open until fixed.',
+    ? `**Failed:** ${blocking.length} production advisor${blocking.length === 1 ? 'y' : 'ies'} that must be fixed (new and moderate or higher, or high or critical).`
+    : '**Passed:** no high or critical advisory and no new moderate advisory in production dependencies. Known advisories stay open until fixed.',
   '',
   '| Status | Severity | Scope | Package | Advisory |',
   '| --- | --- | --- | --- | --- |',
@@ -77,7 +81,7 @@ console.log(summary);
 
 if (process.env.GITHUB_ACTIONS) {
   for (const r of rows) {
-    const level = r.status === 'new' ? (blocking.includes(r) ? 'error' : 'warning') : 'warning';
+    const level = blocking.includes(r) ? 'error' : 'warning';
     console.log(`::${level} title=${r.status === 'new' ? 'New' : 'Known'} ${r.severity} advisory (${r.scope})::${r.package} ${r.id} ${r.title}`);
   }
   for (const k of resolved) console.log(`::notice title=Known advisory no longer reported::${k.package} ${k.id} can be removed from ${knownPath}`);

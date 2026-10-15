@@ -24,6 +24,18 @@ const en = {
     networkError: 'We could not reach the server. Check your connection and try again.',
     apiNotConfigured: 'This version of the site is not connected to a server.',
   },
+  apiErrors: {
+    timeout: 'The server did not answer in time. Please try again.',
+    rateLimited: 'Too many attempts. Please wait {minutes} min and try again.',
+    rateLimitedNoTime: 'Too many attempts. Please wait a few minutes and try again.',
+    busy: 'The service is busy right now. Please try again in a minute.',
+    maintenance: 'VizaExpress is undergoing maintenance. Please try again later. For urgent questions, write to {email}.',
+    registrationDisabled: 'New accounts cannot be created at the moment. Please try again later.',
+    paymentsDisabled: 'Payments are not available at the moment. Please try again later.',
+    sessionExpired: 'Your session has ended. Please log in again.',
+    forbidden: 'You do not have access to this.',
+    unavailable: 'The service is temporarily unavailable. Please try again later.',
+  },
   nav: {
     howItWorks: 'How it works',
     pricing: 'Pricing',
@@ -254,7 +266,6 @@ const en = {
       email: 'Please enter a valid email address.',
       password: 'Your password must have at least 8 characters.',
       fullName: 'Please enter your full name.',
-      tooMany: 'Too many attempts. Please wait a few minutes and try again.',
     },
     side: {
       title: 'Your documents, checked before the office sees them',
