@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, CheckCircle2, CircleAlert, CloudUpload, CreditCard, Eye, Lightbulb, Lock, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { applicationsApi, documentsApi, errorMessage, paymentsApi } from '../services/api';
+import { applicationsApi, documentsApi, errorMessage, knownErrorMessage, paymentsApi } from '../services/api';
 import { UPLOAD_ACCEPT, checkUploadFile, uploadErrorMessage } from '../lib/documentFile';
 import { DOCUMENT_TYPES, PLAN_PRICES } from '../config/site';
 import Button from '../components/ui/Button';
@@ -304,7 +304,7 @@ export default function ApplicationDetail() {
       const { data } = await paymentsApi.checkout(application.package_type, application.id);
       window.location.href = data.url;
     } catch (err) {
-      setPayError(err.response?.data?.error || t('application.payError'));
+      setPayError(knownErrorMessage(err, t) || err.response?.data?.error || t('application.payError'));
       setPaying(false);
     }
   };

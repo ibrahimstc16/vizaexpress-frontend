@@ -17,6 +17,8 @@ const REQUIRED = {
   'base-uri': ["'self'"],
   'form-action': ["'self'"],
   'frame-ancestors': ["'none'"],
+  'require-trusted-types-for': ["'script'"],
+  'trusted-types': ["'none'"],
 };
 
 const sameSet = (a, b) => a.length === b.length && a.every((item) => b.includes(item));
@@ -37,8 +39,8 @@ export function cspProblems(vercelConfig, origins = API_ORIGINS) {
   }
   for (const [name, sources] of Object.entries(csp)) {
     if (sources.includes('*')) problems.push(`${name} must not use *`);
-    if (name !== 'style-src' && sources.some((s) => s === "'unsafe-inline'" || s === "'unsafe-eval'")) {
-      problems.push(`${name} must not allow inline code`);
+    if (sources.some((s) => s === "'unsafe-inline'" || s === "'unsafe-eval'")) {
+      problems.push(`${name} must not allow inline code or styles`);
     }
   }
   const expectedConnect = ["'self'", ...deployedApiOrigins(origins)];

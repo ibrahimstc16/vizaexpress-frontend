@@ -23,6 +23,18 @@ const pl = {
     networkError: 'Nie udało się połączyć z serwerem. Sprawdź połączenie z internetem i spróbuj ponownie.',
     apiNotConfigured: 'Ta wersja strony nie jest połączona z serwerem.',
   },
+  apiErrors: {
+    timeout: 'Serwer nie odpowiedział na czas. Spróbuj ponownie.',
+    rateLimited: 'Zbyt wiele prób. Odczekaj {minutes} min i spróbuj ponownie.',
+    rateLimitedNoTime: 'Zbyt wiele prób. Odczekaj kilka minut i spróbuj ponownie.',
+    busy: 'Usługa jest teraz przeciążona. Spróbuj ponownie za minutę.',
+    maintenance: 'W VizaExpress trwają prace techniczne. Spróbuj ponownie później. W pilnych sprawach napisz na {email}.',
+    registrationDisabled: 'Zakładanie nowych kont jest chwilowo niemożliwe. Spróbuj ponownie później.',
+    paymentsDisabled: 'Płatności są chwilowo niedostępne. Spróbuj ponownie później.',
+    sessionExpired: 'Twoja sesja wygasła. Zaloguj się ponownie.',
+    forbidden: 'Nie masz do tego dostępu.',
+    unavailable: 'Usługa jest chwilowo niedostępna. Spróbuj ponownie później.',
+  },
   nav: {
     howItWorks: 'Jak to działa',
     pricing: 'Cennik',
@@ -253,7 +265,6 @@ const pl = {
       email: 'Podaj prawidłowy adres e-mail.',
       password: 'Hasło musi mieć co najmniej 8 znaków.',
       fullName: 'Podaj imię i nazwisko.',
-      tooMany: 'Zbyt wiele prób. Odczekaj kilka minut i spróbuj ponownie.',
     },
     side: {
       title: 'Twoje dokumenty sprawdzone, zanim zobaczy je urząd',
